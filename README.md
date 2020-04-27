@@ -1,7 +1,7 @@
 # CovidMonitoring
 A small project in Erlang to pass the exam of Emerging Programming Paradigms @ University of Bologna
 
-## VERSIONE: 0.1
+## VERSIONE: 0.2
 
 ## SCOPO DEL PROGETTO:
 
@@ -46,7 +46,8 @@ tracciamento dei contatti fra portatori del virus.
 
       1) quando un visitatore entra in lista, a lui e a tutti quelli presenti
          nella lista con probabilità 25% viene inviato un messaggio di contatto
-         per sapere con chi sono entrati in contatto.
+         per sapere con chi sono entrati in contatto. Uno dei due deve essere
+         il nuovo arrivato.
 
          PID1 ! {contact, PID2}
 
