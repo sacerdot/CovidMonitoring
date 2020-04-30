@@ -5,16 +5,15 @@ sleep(T) ->
   receive after T -> ok end.
 
 init(L) ->
+  io:format("Actual places list: ~p ~n", [L]),
   receive
     {new_place, PID} ->
-      io:format("msg from ~p ~n", [PID]),
+      io:format("Received new_palce from ~p ~n", [PID]),
       monitor(process, PID),
       init([ PID | L ]);
-    Msg = {DOWN, Reference, process, Pid, Reason} ->
-      io:format("~p monitor1 ~n", [Msg]),
-      init(L);
-    M = _ ->
-      io:format("~p monitor2 ~n", [M])
+    {_, _, process, Pid, Reason} ->
+      io:format("Process ~p died with reason ~p ~n", [Pid, Reason]),
+      init(lists:delete(Pid, L))
   end.
 
 luogo() ->
@@ -30,5 +29,6 @@ main() ->
 %%  io:format("~p Luogo 1 ~n", [L1]),
   L2 = spawn(?MODULE, luogo, []),
 %%  io:format("~p Luogo 2 ~n", [L2]),
+  sleep(1000),
   exit(L2,kill).
 
