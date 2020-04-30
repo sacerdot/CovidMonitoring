@@ -1,4 +1,4 @@
--module(hospital).
+-module(server).
 -export([main/0, test/0]).
 
 test() ->
@@ -11,7 +11,7 @@ test() ->
       end, test()
   end.
 
-
+ 
 main() ->
-  H = spawn(?MODULE, test, []),
-  global:register_name(hospital, H).
+  global:register_name(hospital, self()),
+  spawn(?MODULE, test, []).
