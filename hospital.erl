@@ -13,7 +13,7 @@
 -export([run/0]).
 
 run() ->
-  io:format("hospital started~n"),
+  io:format("hospital started pid=~p ~n",[self()]),
   global:register_name(hospital,self()),
   io:format("hospital registered~n"),
   receive
@@ -23,10 +23,9 @@ run() ->
       % answer with probability 25% to be positive
       case (rand:uniform(4)==1) of
         true ->
-          io:format("positive! ~n"),
           PID ! positive;
         false ->
-          io:format("negative! ~n"),
           PID ! negative
-      end
+      end,
+      run()
   end.

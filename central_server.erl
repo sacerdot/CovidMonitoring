@@ -13,9 +13,9 @@
 -export([run/0]).
 
 run() ->
-  io:format("central server started ~n"),
+  io:format("central server started pid=~p ~n",[self()]),
   % register central server name
-  global:register_name/2(server,self()),
+  global:register_name(server,self()),
   io:format("registered server global name ~n"),
   % trapping exit signal from users
   process_flag(trap_exit, true),
