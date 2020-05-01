@@ -7,7 +7,19 @@
 %%% Created : 01. May 2020 11:14
 %%%-------------------------------------------------------------------
 -module(central_server).
--author("fede").
+-author("Federico Bertani").
 
 %% API
--export([]).
+-export([run/0]).
+
+run() ->
+  % register central server name
+  global:register_name/2(server,self()),
+  PIDLIST = [],
+  receive
+    % a new place is registering
+    {new_place,Place_pid} ->
+      PIDLIST ++ [Place_pid];
+    % user requested list of places
+    {get_places, Pid} -> Pid ! {places, PIDLIST}
+   end.
