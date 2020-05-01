@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%%% @author fede
+%%% @author Federico Bertani
 %%% @copyright (C) 2020, <COMPANY>
 %%% @doc
 %%%
