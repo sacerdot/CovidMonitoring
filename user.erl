@@ -54,11 +54,11 @@ simple_location(N) ->
 simple_hospital() ->
   io:format("Hospital PID~p~n", [self()]),
   receive
-    {test_me,PID} ->
+    {test_me, PID} ->
       P = rand:uniform(4),
       if
         P == 1 -> PID ! {positive};
-        true ->PID ! {negative}
+        true -> PID ! {negative}
       end,
       simple_hospital()
   end.
@@ -67,43 +67,48 @@ simple_hospital() ->
 %-----------Topology maintenance protocol-----------
 
 get_places(N, LIST_TO_RETURN, PID) ->
-  %io:format("BEFORE_C LR ~p,~p,~n", [LR,length(LR)]),
-  %io:format("Random ~p,~n", [C]),
   if
     length(LIST_TO_RETURN) < N ->
       server ! {get_places, self()},
       receive
         {places, LR} ->
-          if length(LR) > N ->
-            C = rand:uniform(length(LR)),
-            %io:format("Random ~p,~p,~p,~p~n", [length(LR), N, length(LIST_TO_RETURN), C]), %lists:delete(lists:nth(C, LR), LR),
-            %io:format("LIST TO PID ,~p~n", [list_to_pid(lists:nth(C, LR))]),
-            %io:format("TEST ~p,~p,~p,~n", [lists:nth(C, LR), LIST_TO_RETURN, lists:member(lists:nth(C, LR), LIST_TO_RETURN)]),
-            TEST = lists:member(lists:nth(C, LR), LIST_TO_RETURN),
-            if
-              TEST -> get_places(N, LIST_TO_RETURN, PID);
-              true -> get_places(N, lists:append(LIST_TO_RETURN, [lists:nth(C, LR)]), PID)
-            end;
-            true -> halt()
+          case length(LR) > N of
+            true ->
+              C = rand:uniform(length(LR)),
+              %io:format("Random ~p,~p,~p,~p~n", [length(LR), N, length(LIST_TO_RETURN), C]), %lists:delete(lists:nth(C, LR), LR),
+              %io:format("LIST TO PID ,~p~n", [list_to_pid(lists:nth(C, LR))]),
+              case lists:member(lists:nth(C, LR), LIST_TO_RETURN) of
+                true -> get_places(N, LIST_TO_RETURN, PID);
+                false -> get_places(N, lists:append(LIST_TO_RETURN, [lists:nth(C, LR)]), PID)
+              end;
+            false -> exit(self(), kill)
           end
       end;
     true -> PID ! {new_places, LIST_TO_RETURN}
   end.
 
-%TODO: INSERT A TRUE MONITOR TO LOCATION PIDS
+
+%TODO: INSERT A TRUE MONITOR TO LOCATION PIDS and INITIALIZER FOR LIST
 location_manager(L) ->
   io:format("LOCATION MANTAINER~p,~p,~n", [L, length(L)]),
+  process_flag(trap_exit, true),
   %link(server),
-  %PID_CHECKER = spawn(?MODULE, location_check, [L,self()]),
   sleep(?TIMEOUT_LOCATION_MANAGER),
   PID_GETTER = spawn(?MODULE, get_places, [?LIST_LOCATION_LENGTH, L, self()]),
   receive
-    {luogo_morto, PID_LUOGO} ->
-      if length(L) > 0 ->
-        exit(PID_GETTER, kill),
-        io:format("Post mortem~p,~p,~p,~n", [PID_LUOGO, L--[PID_LUOGO], length(L--[PID_LUOGO])]),
-        location_manager(L--[PID_LUOGO]);
-        true -> exit(PID_GETTER, kill), location_manager(L)
+    {'EXIT', PLACE_PID, Reason} ->
+      case  length(L) > 0 of
+        true -> exit(PID_GETTER, kill),
+          io:format("Post mortem EXIT~p,~p,~p,~n", [PLACE_PID, L--[PLACE_PID], length(L--[PLACE_PID])]),
+          location_manager(L--[PLACE_PID]);
+        false -> exit(PID_GETTER, kill), location_manager(L)
+      end;
+    {luogo_morto, PLACE_PID} ->
+      case  length(L) > 0 of
+        true -> exit(PID_GETTER, kill),
+          io:format("Post mortem EXIT~p,~p,~p,~n", [PLACE_PID, L--[PLACE_PID], length(L--[PLACE_PID])]),
+          location_manager(L--[PLACE_PID]);
+        false -> exit(PID_GETTER, kill), location_manager(L)
       end;
     {new_places, LR} ->%[monitor(self(),PID) || PID <- LR],
       location_manager(LR)
@@ -112,21 +117,22 @@ location_manager(L) ->
 %-----------Test protocol-----------
 test_manager() ->
   sleep(?TIMEOUT_TEST_MANAGER),
-  P = rand:uniform(4),
-  io:format("P IN COVID TEST ~p~n",[P]),
-  if
-    P == 1 ->  io:format("TEST covid ~p~n", [hospital ! {test_me, self()}]), hospital ! {test_me, self()};
-    true -> test_manager()
+  case (rand:uniform(4) == 1) of
+    true ->
+      io:format("TEST covid ~p~n", [hospital ! {test_me, self()}]), hospital ! {test_me, self()};
+    false ->
+      test_manager()
   end,
   receive
-    {positive} ->  io:format("~p POSITIVO~n", [self()]), exit(kill);
-    {negative} ->  io:format("~p NEGATIVO~n", [self()])
+    {positive} -> io:format("~p POSITIVO~n", [self()]), exit(kill);
+    {negative} -> io:format("~p NEGATIVO~n", [self()])
   end.
 
 %-----------Main-----------
+%TODO: Manage the death of user() when one from M,T dies.
 user() ->
   %mettere link al server
-  N = lists:seq(0, 5),
+  N = lists:seq(0, 10),
   S = spawn_link(?MODULE, server, [[]]),
   register(server, S), %rendo pubblico associazione nome PID
   [spawn(?MODULE, simple_location, [1]) || X <- N],
