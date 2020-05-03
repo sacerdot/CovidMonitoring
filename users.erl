@@ -1,9 +1,11 @@
 -module(users).
--export([users_init/0, timer_visit/1]).
+-export([users_init/0, timer_visit/3]).
 
+rand_in_range(Min, Max) ->
+	rand:uniform(Max-Min)+Min.
 
 get_list(_, List ,  0) -> List;
-get_list([], List, _) -> io:format("Non abbiamo più posti ~n"),  List ;
+get_list([], List, _) -> io:format("Non ho (~p) più posti ~p~n", [self(), List]),  List ;
 get_list(Places, List, N) ->
    % io:format("In get list il ~p places è : ~p e list è ~p ~n",[N, Places, List]),
    X = lists:nth(rand:uniform(length(Places)), Places),
@@ -20,31 +22,41 @@ fget_places(N, UPlaces) ->
       get_list(Places -- UPlaces, UPlaces, N)   %meglio lista vuota qui o UPlaces?
   end.
 
-timer_visit(Pid) -> receive after crypto:rand_uniform(3000,5000) -> Pid ! {usr_start_vist} end.   %PROBLEMA?
+timer_visit(Pid, Time, Msg) -> receive after Time -> Pid ! {Msg} end.
 
-sleep() -> receive after crypto:rand_uniform(5000,10000) -> ok end.   %Problema?
+wait_for_contacts(Contacts) ->
+	receive
+		{contact, Pid} -> 
+			link(Pid),
+			wait_for_contacts([Pid|Contacts]);
+		{end_wait} -> Contacts
+	end. 
 
 make_visit(UPlaces) ->
   Ref = make_ref(),
   Place = lists:nth(rand:uniform(length(UPlaces)), UPlaces),
-  io:format("Io ~p Vognlio visitare il luogo ~p con ref ~p~n", [self(), Place, Ref]),
+  %io:format("Io ~p Vognlio visitare il luogo ~p con ref ~p~n", [self(), Place, Ref]),
   Place ! {begin_visit, self(), Ref},
-  sleep(),
-  Place ! {end_visit, self(), Ref}.
+	spawn(?MODULE, timer_visit, [self(), rand_in_range(5000,10000), end_wait]),
+	NewContacts = wait_for_contacts([]),
+	Place ! {end_visit, self(), Ref},
+	NewContacts.
 
-user(UPlaces) ->
-  io:format("Places in User ~p~n",[UPlaces]),
+user(UPlaces, UContacts) ->
+  %io:format("Places in User ~p~n",[UPlaces]),
   %io:format("In user il mio pid è : ~p~n",[self()]),
-  spawn(?MODULE, timer_visit, [self()]),
+  spawn(?MODULE, timer_visit, [self(), rand_in_range(3000,5000), usr_start_vist]),
   receive
     {'DOWN', _ , process, Pid, _ } ->
-      io:format("Qualcuno è morto :( ~p~n",[Pid]),
-      user(fget_places(1, UPlaces -- [Pid]));
-    {usr_start_vist} -> make_visit(UPlaces), user(UPlaces)
-
+      %io:format("Qualcuno è morto :( ~p~n",[Pid]),
+      user(fget_places(1, UPlaces -- [Pid]), UContacts);
+    {usr_start_vist} -> 
+			X = make_visit(UPlaces),
+			io:format("Io ~p sono in contatto con ~p~n",[self(), X ++ UContacts]), 
+			user(UPlaces, X ++ UContacts)
   end.
 
 
 users_init() ->
   global:send(server, {new_usr, self()}),
-  user(fget_places(3, [])).
+  user(fget_places(3, []), []).

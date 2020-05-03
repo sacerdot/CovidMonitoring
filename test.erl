@@ -41,5 +41,5 @@ test() ->
 %    Luogo = spawn(?MODULE, place_init, []),
 %    register(luogo, Luogo),
     spawn(server, server_init, []),
-    create_places(4),
-    create_users(3).
+    create_places(3),
+    create_users(10).

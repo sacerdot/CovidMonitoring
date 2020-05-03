@@ -11,10 +11,10 @@ contacts(PID, [{FirstPid, _}|OtherVistiors]) ->
 
 
 place(Visitors) ->
-    io:format("i miei (~p) visitatori: ~p~n", [self(),Visitors]),
+    %io:format("i miei (~p) visitatori: ~p~n", [self(),Visitors]),
     receive
         {begin_visit, PID_VISITOR, REF} ->
-            io:format("è iniziata la vista di ~p in ~p con ref ~p ~n", [PID_VISITOR, self(), REF]),
+            %io:format("è iniziata la vista di ~p in ~p con ref ~p ~n", [PID_VISITOR, self(), REF]),
             P = rand:uniform(4),
             case P of
                 1 -> contacts(PID_VISITOR, Visitors);
@@ -25,7 +25,7 @@ place(Visitors) ->
             place([{PID_VISITOR, REF}|Visitors]);
 
         {end_visit, PID_VISITOR, REF} ->
-            io:format("è finita la vista di ~p in ~p con ref ~p ~n", [PID_VISITOR, self(), REF]),
+            %io:format("è finita la vista di ~p in ~p con ref ~p ~n", [PID_VISITOR, self(), REF]),
             place(Visitors -- [{PID_VISITOR, REF}])
     end.
 
