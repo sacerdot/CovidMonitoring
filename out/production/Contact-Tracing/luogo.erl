@@ -1,11 +1,11 @@
 -module(luogo).
--export([main/0, init_luogo/0, visit_place/1, sleep/1, user/1]).
+-export([main/0, init/0, visit_place/1, sleep/1, user/1]).
 -import(server, [init/1]).
 
 sleep(T) ->
   receive after T -> ok end.
 
-init_luogo() ->
+init() ->
    PID = global:whereis_name(server),
    case PID of 
        undefined -> exit(server_not_registered);
