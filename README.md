@@ -109,7 +109,7 @@ tracciamento dei contatti fra portatori del virus.
 
   * PROTOCOLLO DI MANTENIMENTO DELLA TOPOLOGIA:
 
-      1) all'avvio si registra globalmente (con global_register())
+      1) all'avvio si registra globalmente (con global:register_name())
          usando l'atomo hospital
 
   * PROTOCOLLO DI TEST:
