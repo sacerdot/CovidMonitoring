@@ -4,7 +4,7 @@
 </p>
 A small project in Erlang to pass the exam of Emerging Programming Paradigms @ University of Bologna
 
-## VERSIONE: 0.2
+## VERSIONE: 0.3
 
 ## SCOPO DEL PROGETTO:
 
@@ -132,7 +132,7 @@ tracciamento dei contatti fra portatori del virus.
       1) mantiene una lista dei luoghi attivi; i luoghi vengono aggiunti al
          ricevimento del messaggio
 
-         {new_place, PID_SERVER}
+         {new_place, PID_LUOGO}
 
       2) monitora i luoghi attivi, eliminandoli dalla lista quando questi muoiono
 
