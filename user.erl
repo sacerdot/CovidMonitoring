@@ -109,6 +109,24 @@ location_manager(L) ->
       location_manager(LR)
   end.
 
+%-----------Visit protocol-----------
+visit_manager(L) ->
+  % Not blocking receive to get places updates (if any)
+  receive
+    {new_places, UL} -> L = UL
+  after 0 ->
+    ok
+  end,
+  sleep(2 + rand:uniform(3)),
+  % Ref unused actually
+  Ref = make_ref(),
+  P = lists:nth(rand:uniform(length(L)),L),
+  P ! {begin_visit, self(), Ref},
+  sleep(4 + rand:uniform(6)),
+  P ! {end_visit, self(), Ref},
+  visit_manager(L).
+
+
 %-----------Test protocol-----------
 test_manager() ->
   sleep(?TIMEOUT_TEST_MANAGER),
@@ -137,6 +155,8 @@ user() ->
   register(location_manager, M),
   H = spawn_link(?MODULE, simple_hospital, []),
   register(hospital, H),
+  V = spawn_link(?MODULE, visit_manager, [[]]),
+  register(visit_manager, V),
   io:fwrite("HOSPITAL SPAWNED\n"),
   io:fwrite("LOCATION MANAGER SPAWNED\n"),
   T = spawn_link(?MODULE, test_manager, []),
