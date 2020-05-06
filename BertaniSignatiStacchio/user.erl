@@ -9,7 +9,7 @@
 -module(user).
 -author("Lorenzo_Stacchio").
 %% API
--export([user/0, location_manager/1, get_places/3, test_manager/0, server/1, simple_location/1, simple_hospital/0]).
+-export([user/0, location_manager/1, get_places/3, test_manager/0, visit_manager/1, server/1, simple_location/1, simple_hospital/0]).
 -define(TIMEOUT_LOCATION_MANAGER, 10000).
 -define(TIMEOUT_TEST_MANAGER, 30000).
 -define(LIST_LOCATION_LENGTH, 3).
@@ -83,7 +83,7 @@ get_places(N, LIST_TO_RETURN, PID) ->
             false -> exit(self(), kill)
           end
       end;
-    true -> PID ! {new_places, LIST_TO_RETURN}%, visit_manager ! {new_places, LIST_TO_RETURN}
+    true -> PID ! {new_places, LIST_TO_RETURN}, visit_manager ! {new_places, LIST_TO_RETURN}
   %TODO: inserire messaggio a visits
   end.
 
@@ -111,13 +111,14 @@ location_manager(L) ->
 
 %-----------Visit protocol-----------
 visit_manager(L) ->
+  io:format("VISIT MANAGER init ~p~p~n", [L,self()]),
   case length(L) == 0 of
     true ->
       receive
-        {new_places, UL} -> L = UL
+        {new_places, UL} ->io:format("VISIT true  init ~p ~n", [UL]), L=UL
       end;
     false ->   % Not blocking receive to get places updates (if any)
-      io:format("Not 0 length ~p ~n", L),
+      io:format("VISIT MANAGER Not 0 length ~p ~n", [L]),
       receive
         {new_places, UL} -> L = UL
       after 0 ->
@@ -156,17 +157,18 @@ user() ->
   S = spawn_link(?MODULE, server, [[]]),
   register(server, S), %rendo pubblico associazione nome PID
   [spawn(?MODULE, simple_location, [1]) || X <- N],
-  io:fwrite("SERVER SPAWNED\n"),
+  io:format("SERVER SPAWNED~p~n", [S]),
   M = spawn_link(?MODULE, location_manager, [[]]),
   register(location_manager, M),
+  io:format("LOCATION MANAGER SPAWNED~p~n", [M]),
   H = spawn_link(?MODULE, simple_hospital, []),
   register(hospital, H),
+  io:format("HOSPITAL SPAWNED~p~n", [H]),
   V = spawn_link(?MODULE, visit_manager, [[]]),
   register(visit_manager, V),
-  io:fwrite("HOSPITAL SPAWNED\n"),
-  io:fwrite("LOCATION MANAGER SPAWNED\n"),
+  io:format("VISITOR MANAGER SPAWNED~p~n", [V]),
   T = spawn_link(?MODULE, test_manager, []),
   register(test_manager, T),
-  io:fwrite("TEST SPAWNED\n").
+  io:format("TEST MANAGER SPAWNED~p~n", [T]).
 
 
