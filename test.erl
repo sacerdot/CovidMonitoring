@@ -40,6 +40,7 @@ create_places(Num) ->
 test() ->
 %    Luogo = spawn(?MODULE, place_init, []),
 %    register(luogo, Luogo),
-    spawn(server, server_init, []),
+    spawn(server, server_init, []), %la server_init fa ache lei la spown del server, forse qui basta fare la chiamata alla server init
+    hospital:hospital_init(),
     create_places(3),
     create_users(10).

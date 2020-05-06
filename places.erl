@@ -4,7 +4,8 @@
 
 
 contacts(_, []) -> []; %qualcosa per ritornare ok?
-contacts(PID, [{FirstPid, _}|OtherVistiors]) ->
+% contacts(PID, [{FirstPid, _}|OtherVistiors]) ->  %HO TOLTO I REF
+contacts(PID, [FirstPid|OtherVistiors]) ->  %HO TOLTO I REF
     FirstPid ! {contact, PID},
     PID ! {contact, FirstPid},
     contacts(PID, OtherVistiors).
@@ -22,11 +23,16 @@ place(Visitors) ->
                 %dobbiamo fare il caso default _ ?
                 _ -> ok
             end,
-            place([{PID_VISITOR, REF}|Visitors]);
+            % place([{PID_VISITOR, REF}|Visitors]);
+            place([PID_VISITOR|Visitors]);
 
         {end_visit, PID_VISITOR, REF} ->
             %io:format("è finita la vista di ~p in ~p con ref ~p ~n", [PID_VISITOR, self(), REF]),
-            place(Visitors -- [{PID_VISITOR, REF}])
+            %place(Visitors -- [{PID_VISITOR, REF}]);
+            place(Visitors -- [PID_VISITOR]);
+
+        {death_of_user, PID_USER} -> place(Visitors -- [PID_USER])
+
     end.
 
 place_init() ->
@@ -34,6 +40,8 @@ place_init() ->
     %link(server),
     %comunica al server la propria esistenza
     global:send(server, {new_place, self()}),
+    Pid_Server=global:whereis_name(server),
+    link(Pid_Server),
 
     %Morte del luoghi
     % P = rand:uniform(2),
