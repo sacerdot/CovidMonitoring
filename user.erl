@@ -111,20 +111,23 @@ location_manager(L) ->
 
 %-----------Visit protocol-----------
 visit_manager(L) ->
-  % Not blocking receive to get places updates (if any)
-  receive
-    {new_places, UL} -> L = UL
-  after 0 ->
-    ok
-  end,
-  sleep(2 + rand:uniform(3)),
-  % Ref unused actually
-  Ref = make_ref(),
-  P = lists:nth(rand:uniform(length(L)),L),
-  P ! {begin_visit, self(), Ref},
-  sleep(4 + rand:uniform(6)),
-  P ! {end_visit, self(), Ref},
-  visit_manager(L).
+  case length(L) == 0 of
+    true -> visit_manager(L);
+    false ->   % Not blocking receive to get places updates (if any)
+      receive
+        {new_places, UL} -> L = UL
+      after 0 ->
+        ok
+      end,
+      sleep(2 + rand:uniform(3)),
+      % Ref unused actually
+      Ref = make_ref(),
+      P = lists:nth(rand:uniform(length(L)),L),
+      P ! {begin_visit, self(), Ref},
+      sleep(4 + rand:uniform(6)),
+      P ! {end_visit, self(), Ref},
+      visit_manager(L)
+  end.
 
 
 %-----------Test protocol-----------
