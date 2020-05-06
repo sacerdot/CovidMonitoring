@@ -46,7 +46,7 @@ simple_location(N) ->
           io:format("Death of ~p~n", [self()]),
           server ! {remove_place, self()},
           location_manager ! {luogo_morto, self()},
-          exit(normal);
+          exit(luogo_morto2);
         true -> simple_location(0)
       end
   end.
@@ -76,7 +76,6 @@ get_places(N, LIST_TO_RETURN, PID) ->
             true ->
               C = rand:uniform(length(LR)),
               %io:format("Random ~p,~p,~p,~p~n", [length(LR), N, length(LIST_TO_RETURN), C]), %lists:delete(lists:nth(C, LR), LR),
-              %io:format("LIST TO PID ,~p~n", [list_to_pid(lists:nth(C, LR))]),
               case lists:member(lists:nth(C, LR), LIST_TO_RETURN) of
                 true -> get_places(N, LIST_TO_RETURN, PID);
                 false -> get_places(N, lists:append(LIST_TO_RETURN, [lists:nth(C, LR)]), PID)
@@ -84,11 +83,11 @@ get_places(N, LIST_TO_RETURN, PID) ->
             false -> exit(self(), kill)
           end
       end;
-    true -> PID ! {new_places, LIST_TO_RETURN}
+    true -> PID ! {new_places, LIST_TO_RETURN}%, visit_manager ! {new_places, LIST_TO_RETURN}
+  %TODO: inserire messaggio a visits
   end.
 
 
-%TODO: INSERT A TRUE MONITOR TO LOCATION PIDS and INITIALIZER FOR LIST
 location_manager(L) ->
   io:format("LOCATION MANTAINER~p,~p,~n", [L, length(L)]),
   process_flag(trap_exit, true),
@@ -97,20 +96,16 @@ location_manager(L) ->
   PID_GETTER = spawn(?MODULE, get_places, [?LIST_LOCATION_LENGTH, L, self()]),
   receive
     {'EXIT', PLACE_PID, Reason} ->
-      case  length(L) > 0 of
+      io:format("Post mortem EXIT1 ~p, ~n",[Reason]),
+        case  length(L) > 0 of
         true -> exit(PID_GETTER, kill),
-          io:format("Post mortem EXIT~p,~p,~p,~n", [PLACE_PID, L--[PLACE_PID], length(L--[PLACE_PID])]),
+          io:format("Post mortem EXIT2 ~p,~p,~p,~n", [PLACE_PID, L--[PLACE_PID], length(L--[PLACE_PID])]),
           location_manager(L--[PLACE_PID]);
         false -> exit(PID_GETTER, kill), location_manager(L)
       end;
-    {luogo_morto, PLACE_PID} ->
-      case  length(L) > 0 of
-        true -> exit(PID_GETTER, kill),
-          io:format("Post mortem EXIT~p,~p,~p,~n", [PLACE_PID, L--[PLACE_PID], length(L--[PLACE_PID])]),
-          location_manager(L--[PLACE_PID]);
-        false -> exit(PID_GETTER, kill), location_manager(L)
-      end;
-    {new_places, LR} ->%[monitor(self(),PID) || PID <- LR],
+    {new_places, LR} ->
+      [link(PID) || PID <- LR],
+      io:format("Link fatto EXIT~n",[]),
       location_manager(LR)
   end.
 
@@ -124,12 +119,13 @@ test_manager() ->
       test_manager()
   end,
   receive
-    {positive} -> io:format("~p POSITIVO~n", [self()]), exit(kill);
-    {negative} -> io:format("~p NEGATIVO~n", [self()])
+    {positive} -> io:format("~p: Entro in quarantena~n", [self()]), exit(quarantena);
+    {negative} -> io:format("~p NEGATIVO~n", [self()]), test_manager()
   end.
+%-----------Monitor  protocol-----------
 
 %-----------Main-----------
-%TODO: Manage the death of user() when one from M,T dies.
+%TODO: Manage the death of user() when one from M,T dies with a MONITOR.
 user() ->
   %mettere link al server
   N = lists:seq(0, 10),
