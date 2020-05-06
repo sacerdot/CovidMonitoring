@@ -9,7 +9,11 @@
 -module(user).
 -author("Lorenzo_Stacchio").
 %% API
+<<<<<<< Updated upstream
 -export([user/0, location_manager/1, get_places/3, test_manager/0, visit_manager/1, server/1, simple_location/1, simple_hospital/0]).
+=======
+-export([user/0, location_manager/1, get_places/3, test_manager/0, server/1, simple_location/1, simple_hospital/0, visit_manager/1]).
+>>>>>>> Stashed changes
 -define(TIMEOUT_LOCATION_MANAGER, 10000).
 -define(TIMEOUT_TEST_MANAGER, 30000).
 -define(LIST_LOCATION_LENGTH, 3).
@@ -112,27 +116,33 @@ location_manager(L) ->
 %-----------Visit protocol-----------
 visit_manager(L) ->
   io:format("VISIT MANAGER init ~p~p~n", [L,self()]),
+  % Not blocking receive to get places updates (if any)
+  receive
+    {new_places, UL} ->
+      io:format("VISIT MANAGER Update~p ~n", [UL]),
+      visit_manager(UL)
+  after 0 ->
+    ok
+  end,
   case length(L) == 0 of
     true ->
+      io:format("VISIT MANAGER TRUE before ~p ~n", [L]),
       receive
-        {new_places, UL} ->io:format("VISIT true  init ~p ~n", [UL]), L=UL
+      {new_places, UL} ->
+        io:format("VISIT MANAGER TRUE after ~p ~n", [UL]),
+        visit_manager(UL)
       end;
-    false ->   % Not blocking receive to get places updates (if any)
-      io:format("VISIT MANAGER Not 0 length ~p ~n", [L]),
-      receive
-        {new_places, UL} -> L = UL
-      after 0 ->
-        ok
-      end
-  end,
-    sleep(2 + rand:uniform(3)),
-    % Ref unused actually
-    Ref = make_ref(),
-    P = lists:nth(rand:uniform(length(L)),L),
-    P ! {begin_visit, self(), Ref},
-    sleep(4 + rand:uniform(6)),
-    P ! {end_visit, self(), Ref},
-    visit_manager(L).
+    false ->
+      io:format("VISIT MANAGER FALSE ~p ~n", [L]),
+      sleep(2 + rand:uniform(3)),
+      % Ref unused actually
+      Ref = make_ref(),
+      P = lists:nth(rand:uniform(length(L)),L),
+      P ! {begin_visit, self(), Ref},
+      sleep(4 + rand:uniform(6)),
+      P ! {end_visit, self(), Ref},
+      visit_manager(L)
+  end.
 
 %-----------Test protocol-----------
 test_manager() ->
