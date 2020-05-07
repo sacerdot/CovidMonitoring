@@ -36,9 +36,13 @@ get_places_updates(ActorList, L) ->
       R = PIDLIST -- L,
       E1 = lists:nth(rand:uniform(length(R)), R),
       ListLength = length(L),
-      io:format("listLength ~p~n", [ListLength]),
-      case ListLength of %% aggiungere case 0 e _ 
-        1 -> E2 = lists:nth(rand:uniform(length(R - E1)), R),
+      io:format("[User] pid:~p active places: ~p~n", [self(), ListLength]),
+      case ListLength of
+        0 ->
+          E2 = lists:nth(rand:uniform(length(R -- [E1])), R),
+          E3 = lists:nth(rand:uniform(length(R -- [E1, E2])), R),
+          ActorList ! {update_list, [E1, E2, E3]};
+        1 -> E2 = lists:nth(rand:uniform(length(R -- [E1])), R),
           ActorList ! {update_list, [E1, E2]};
         2 -> ActorList ! {update_list, [E1]}
       end

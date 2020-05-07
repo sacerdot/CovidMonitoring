@@ -50,7 +50,7 @@ main() ->
     L = [],
     S = spawn(server, init, [L]),
     global:register_name(server, S),
-    Luogo = spawn(?MODULE, init, []),
+    Luogo = spawn(?MODULE, init_luogo, []),
     U1 = spawn(?MODULE, user, [Luogo]),
     io:format("[Luogo] Pid utente1 ~p ~n", [U1]), 
     U2 = spawn(?MODULE, user, [Luogo]),
