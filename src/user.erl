@@ -33,14 +33,14 @@ list(L) ->
 %% TODO add to utils
 %% L1 -- L2
 set_subtract(L1, L2) ->
-  lists:filter(fun (X) -> not lists:member(X,L2) end, L1).
+  lists:filter(fun(X) -> not lists:member(X, L2) end, L1).
 
 take_random([], _) -> [];
 take_random(_, 0) -> [];
 take_random(L, N) ->
   E = lists:nth(rand:uniform(length(L)), L),
-  R = take_random(set_subtract(L, [E]),N-1),
-  [E|R].
+  R = take_random(set_subtract(L, [E]), N - 1),
+  [E | R].
 
 
 get_places_updates(ActorList, L) ->
@@ -50,15 +50,9 @@ get_places_updates(ActorList, L) ->
       R = set_subtract(PIDLIST, L),
       ListLength = length(L),
       case ListLength of
-        0 ->
-          NewActivePlaces = take_random(R, 3),
-          ActorList ! {update_list, NewActivePlaces};
-        1 ->
-          NewActivePlaces = take_random(R, 2),
-          ActorList ! {update_list, NewActivePlaces};
-        2 ->
-          NewActivePlaces = take_random(R, 1),
-          ActorList ! {update_list, NewActivePlaces}
+        0 -> ActorList ! {update_list, take_random(R, 3)};
+        1 -> ActorList ! {update_list, take_random(R, 2)};
+        2 -> ActorList ! {update_list, take_random(R, 1)}
       end
   end.
 
