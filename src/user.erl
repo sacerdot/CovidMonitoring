@@ -48,16 +48,17 @@ get_places_updates(ActorList, L) ->
   receive
     {places, PIDLIST} ->
       R = set_subtract(PIDLIST, L),
-      E1 = lists:nth(rand:uniform(length(R)), R),
       ListLength = length(L),
       case ListLength of
         0 ->
-          E2 = lists:nth(rand:uniform(length([L || L <- R, L /= E1])), R),
-          E3 = lists:nth(rand:uniform(length([L || L <- R, L /= E1, L /= E2])), R),
-          ActorList ! {update_list, [E1, E2, E3]};
-        1 -> E2 = lists:nth(rand:uniform(length([L || L <- R, L /= E1])), R),
-          ActorList ! {update_list, [E1, E2]};
-        2 -> ActorList ! {update_list, [E1]}
+          NewActivePlaces = take_random(R, 3),
+          ActorList ! {update_list, NewActivePlaces};
+        1 ->
+          NewActivePlaces = take_random(R, 2),
+          ActorList ! {update_list, NewActivePlaces};
+        2 ->
+          NewActivePlaces = take_random(R, 1),
+          ActorList ! {update_list, NewActivePlaces}
       end
   end.
 
