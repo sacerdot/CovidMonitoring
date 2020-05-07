@@ -15,15 +15,22 @@ init_luogo() ->
    visit_place([]).
 
 visit_place(L) ->
-    io:format("[Luogo] Utenti nel luogo: ~p ~n", [L]),
+    io:format("[Luogo] ~p Utenti nel luogo: ~p ~n", [self(), L]),
     receive 
         {begin_visit, PID, Ref} ->
             % {Pid, Ref} vs Ref (a cosa serve Ref? Forse perché utente in macchine diverse
             %hanno lo stesso Pid, ma Ref diversi)
             contact_tracing({PID, Ref} , L),
+            check_for_closing(),
             visit_place([{PID, Ref} | L]);
         {end_visit, PID, Ref} -> 
             visit_place(lists:delete({PID, Ref}, L))
+    end.
+
+check_for_closing() ->
+    case rand:uniform(10) of
+        1 -> exit(normal);
+        _ -> ok
     end.
 
 contact_tracing(_, []) -> ok;

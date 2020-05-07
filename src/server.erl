@@ -17,8 +17,8 @@ init_server(L) ->
       end;
     {_, _, process, Pid, Reason} ->
       io:format("Process ~p died with reason ~p ~n", [Pid, Reason]),
+%%      TODO: use the utility function set_subtract
       init_server(lists:delete(Pid, L));
-      % can we use -- instead delete?
     {get_places, PID} ->
       PID ! {places, L},
       init_server(L)
