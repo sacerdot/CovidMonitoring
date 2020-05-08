@@ -1,5 +1,5 @@
 -module(user).
--export([test/0, sleep/1, mainU/0, list/1, check_list/1, visit_places/1, contact_tracing/0, compile/0]).
+-export([test/0, sleep/1, mainU/0, list/2, check_list/2, visit_places/1, contact_tracing/0, compile/0, actorDispatcher/0, get_places_updates/1, require_test/1]).
 -import(luogo, [init_luogo/0]).
 -import(server, [init_server/1]).
 -import(hospital, [main/0]).
@@ -17,38 +17,42 @@ mainU() ->
   PID = global:whereis_name(server),
   case PID of
     undefined -> exit(server_not_registered);
-    P -> link(P),
-      ActorDisaptcher() 
+    P -> 
+      link(P),
+      actorDispatcher() 
   end.
 
-ActorDisaptcher() -> 
+actorDispatcher() -> 
   ActorList = spawn_link(?MODULE, list, [self(), []]),
-  ActorCheckList = spawn_link(?MODULE, check_list, [ActorList, self()]),
-  ActorVisitPlace = spawn_link(?MODULE, visit_places, [self()]),
+  spawn_link(?MODULE, check_list, [ActorList, self()]),
+  spawn_link(?MODULE, visit_places, [ActorList]),
   ActorContactTrace = spawn_link(?MODULE, contact_tracing, []),
   ActorRequiredTest = spawn_link(?MODULE, require_test, [self()]),
-  ActorMergeList = spawn_link(?MODULE, get_places_updates, [ActorList, []]),
-  loop(ActorList, ActorCheckList, ActorVisitPlace, ActorContactTrace, ActorRequiredTest, ActorMergeList).
+  ActorMergeList = spawn_link(?MODULE, get_places_updates, [ActorList]),
+  loop(ActorContactTrace, ActorRequiredTest, ActorMergeList).
 
-loop(List, CheckList, VisitPlace, ContactTrace, RequiredTest, MergList) ->
+loop(ContactTrace, RequiredTest, MergList) ->
   receive 
-    {places, PIDLIST} -> MergList ! {places, PIDLIST}
-    {} -> 
-  end
+    {places, PIDLIST} -> MergList ! {places, PIDLIST};
+    {contact, PID} -> ContactTrace ! {contact, PID};
+    positive -> RequiredTest ! positive;
+    negative -> RequiredTest ! negative
+  end,
+  loop(ContactTrace, RequiredTest, MergList).
 
 % attore che gestisce la lista
 list(PidDispatcher, L) ->
-  %io:format("[ActorList] active places: ~p~n", [L]),
+  io:format("[ActorList] active places: ~p~n", [L]),
   receive
     {get_list, Pid} ->
       Pid ! L,
-      list(L);
+      list(PidDispatcher, L);
     {update_list, L1} ->
       % monitoro tutti i luoghi nella lista L1
       [monitor(process, X) || X <- L1],
-      list(L1 ++ L);
+      list(PidDispatcher, L1 ++ L);
       % messages from a dead place (DOWN)
-    _ -> global:send(server, {get_places, PidDispatcher}),
+    _ -> global:send(server, {get_places, PidDispatcher})
   end.
 
 %% TODO add to utils
@@ -68,7 +72,7 @@ get_places_updates(ActorList) ->
     % aspetto il messaggio dal server con i luoghi attivi
     {places, PIDLIST} ->
       % chiedo all'attore List la mia lista ttuale dei luoghi
-      ActorList ! {get_list, self()}
+      ActorList ! {get_list, self()},
       receive
         L ->  
           R = set_subtract(PIDLIST, L),
@@ -81,7 +85,7 @@ get_places_updates(ActorList) ->
       end
   end.
 
-check_list(ActorList) ->
+check_list(ActorList, PidDispatcher) ->
   ActorList ! {get_list, self()},
   receive
     L ->
@@ -92,7 +96,7 @@ check_list(ActorList) ->
       end
   end,
   sleep(10000),
-  check_list(ActorList).
+  check_list(ActorList, PidDispatcher).
 
 visit_places(ActorList) ->
   ActorList ! {get_list, self()},
@@ -144,11 +148,12 @@ require_test(PidDispatcher) ->
           io:format("[User] ~p sono positivo ~n", [PidDispatcher]),
           exit(positive);
         negative -> io:format("[User] Sono negativo ~n");
+        % Tmp Msg
         Msg -> io:format("Arrivato un messaggio ~p ~n", [Msg])
       end;
     _ -> ok
   end,
-  require_test().
+  require_test(PidDispatcher).
 
 
 % funziona lanciando il server prima di questo
