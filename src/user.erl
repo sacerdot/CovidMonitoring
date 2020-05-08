@@ -1,5 +1,5 @@
 -module(user).
--export([test/0, sleep/1, mainU/0, list/2, check_list/2, visit_places/1, contact_tracing/0, compile/0, actorDispatcher/0, get_places_updates/1, require_test/1]).
+-export([test/0, sleep/1, mainU/0, list/2, check_list/2, visit_places/2, contact_tracing/0, compile/0, actorDispatcher/0, get_places_updates/1, require_test/1]).
 -import(luogo, [init_luogo/0]).
 -import(server, [init_server/1]).
 -import(hospital, [main/0]).
@@ -25,7 +25,7 @@ mainU() ->
 actorDispatcher() -> 
   ActorList = spawn_link(?MODULE, list, [self(), []]),
   spawn_link(?MODULE, check_list, [ActorList, self()]),
-  spawn_link(?MODULE, visit_places, [ActorList]),
+  spawn_link(?MODULE, visit_places, [ActorList, self()]),
   ActorContactTrace = spawn_link(?MODULE, contact_tracing, []),
   ActorRequiredTest = spawn_link(?MODULE, require_test, [self()]),
   ActorMergeList = spawn_link(?MODULE, get_places_updates, [ActorList]),
@@ -36,7 +36,8 @@ loop(ContactTrace, RequiredTest, MergList) ->
     {places, PIDLIST} -> MergList ! {places, PIDLIST};
     {contact, PID} -> ContactTrace ! {contact, PID};
     positive -> RequiredTest ! positive;
-    negative -> RequiredTest ! negative
+    negative -> RequiredTest ! negative;
+    Msg -> io:format("[Dispatcher] Messaggio non gestito: ~p~n", [Msg])
   end,
   loop(ContactTrace, RequiredTest, MergList).
 
@@ -48,6 +49,7 @@ list(PidDispatcher, L) ->
       Pid ! L,
       list(PidDispatcher, L);
     {update_list, L1} ->
+      io:format("Arrivata update_list con i luoghi ~p ~n", [L1]),
       % monitoro tutti i luoghi nella lista L1
       [monitor(process, X) || X <- L1],
       list(PidDispatcher, L1 ++ L);
@@ -71,10 +73,12 @@ get_places_updates(ActorList) ->
   receive
     % aspetto il messaggio dal server con i luoghi attivi
     {places, PIDLIST} ->
+      io:format("Ricevuto il messaggio dal server con ~p~n", [PIDLIST]),
       % chiedo all'attore List la mia lista ttuale dei luoghi
       ActorList ! {get_list, self()},
       receive
-        L ->  
+        L -> 
+          io:format("Ricevuto il messaggio da ActorList con ~p~n", [L]), 
           R = set_subtract(PIDLIST, L),
           case length(L) of
             0 -> ActorList ! {update_list, take_random(R, 3)};
@@ -98,7 +102,7 @@ check_list(ActorList, PidDispatcher) ->
   sleep(10000),
   check_list(ActorList, PidDispatcher).
 
-visit_places(ActorList) ->
+visit_places(ActorList, PidDispatcher) ->
   ActorList ! {get_list, self()},
   receive
     L ->
@@ -107,13 +111,13 @@ visit_places(ActorList) ->
         true ->
           REF = make_ref(),
           [LUOGO|_] = take_random(L, 1),
-          LUOGO ! {begin_visit, self(), REF},
+          LUOGO ! {begin_visit, PidDispatcher, REF},
           sleep(5000 + rand:uniform(5000)),
-          LUOGO ! {end_visit, self(), REF};
+          LUOGO ! {end_visit, PidDispatcher, REF};
         false -> ok
       end,
       sleep(3000 + rand:uniform(2000)),
-      visit_places(ActorList)
+      visit_places(ActorList, PidDispatcher)
   end.
 
 contact_tracing() ->
@@ -163,20 +167,20 @@ test() ->
   spawn(hospital, main, []),
 
   spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
+  % spawn(luogo, init_luogo, []),
+  % spawn(luogo, init_luogo, []),
+  % spawn(luogo, init_luogo, []),
+  % spawn(luogo, init_luogo, []),
+  % spawn(luogo, init_luogo, []),
+  % spawn(luogo, init_luogo, []),
 
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  % io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  % io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  % io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  % io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  % io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  % io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  % io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
   io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]).
 
 

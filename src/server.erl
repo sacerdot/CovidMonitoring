@@ -7,7 +7,7 @@ sleep(T) ->
 init_server(L) ->
   receive
     {new_place, PID} ->
-      %io:format("[Server] Received new_place from ~p ~n", [PID]),
+      io:format("[Server] Received new_place from ~p ~n", [PID]),
       %io:format("[Server] Nuovo place attivo: ~p ~n", [Msg]),
       case lists:member(PID, L) of
         true -> init_server(L);
