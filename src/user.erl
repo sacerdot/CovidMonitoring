@@ -1,13 +1,19 @@
 -module(user).
--export([test/0, sleep/1, main/0, list/1, check_list/1, visit_places/1, contact_tracing/0]).
+-export([test/0, sleep/1, mainU/0, list/1, check_list/1, visit_places/1, contact_tracing/0, compile/0]).
 -import(luogo, [init_luogo/0]).
 -import(server, [init_server/1]).
+-import(hospital, [main/0]).
+
+compile() ->
+  compile:file('hospital.erl'),
+  compile:file('luogo.erl'),
+  compile:file('server.erl').
 
 sleep(T) ->
   receive after T -> ok end.
 
-%protocollo mantenimento topologia
-main() ->
+% protocollo mantenimento topologia
+mainU() ->
   PID = global:whereis_name(server),
   case PID of
     undefined -> exit(server_not_registered);
@@ -15,8 +21,8 @@ main() ->
       ActorList = spawn_link(?MODULE, list, [[]]),
       spawn_link(?MODULE, check_list, [ActorList]),
       spawn_link(?MODULE, visit_places, [ActorList]),
-      spawn_link(?MODULE, contact_tracing, [])
-%%      require_test(ActorList)
+      spawn_link(?MODULE, contact_tracing, []),
+      require_test()
   end.
 
 % attore che gestisce la lista
@@ -75,10 +81,10 @@ visit_places(ActorList) ->
   ActorList ! {get_list, self()},
   receive
     L ->
+      io:format("[Visit place] Lista dei places: ~p ~n", [L]),
       case length(L) >= 1 of
         true ->
           REF = make_ref(),
-          %io:format("[VISIT] ~p ~p ~n", [L, REF]),
           [LUOGO|_] = take_random(L, 1),
           LUOGO ! {begin_visit, self(), REF},
           sleep(5000 + rand:uniform(5000)),
@@ -109,24 +115,41 @@ contact_tracing() ->
       end
   end.
 
+require_test() ->
+  sleep(30000),
+  case rand:uniform(4) of
+    1 -> 
+      hospital ! {test_me, self()},
+      receive
+        {positive} -> 
+          io:format("[User] ~p sono positivo ~n", [self()]),
+          exit(positive);
+        {negative} -> io:format("[User] Sono negativo ~n")
+      end;
+    _ -> ok
+  end,
+  require_test().
 
-require_test(ActorList) ->
-  erlang:error(not_implemented).
 
 %funziona lanciando il server prima di questo
 test() ->
   S = spawn(server, init_server, [[]]),
   global:register_name(server, S),
+  spawn(hospital, main, []),
+
+  spawn(luogo, init_luogo, []),
+  spawn(luogo, init_luogo, []),
+  spawn(luogo, init_luogo, []),
   spawn(luogo, init_luogo, []),
   spawn(luogo, init_luogo, []),
   spawn(luogo, init_luogo, []),
   spawn(luogo, init_luogo, []),
 
-  io:format("[User] ~p~n", [ spawn(?MODULE, main, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, main, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, main, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, main, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, main, [])]).
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]).
 
 
 
