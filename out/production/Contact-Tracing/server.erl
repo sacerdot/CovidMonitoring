@@ -5,7 +5,6 @@ sleep(T) ->
   receive after T -> ok end.
 
 init(L) ->
-  io:format("[Server] Actual places list: ~p ~n", [L]),
   receive
     {new_place, PID} ->
       io:format("[Server] Received new_place from ~p ~n", [PID]),
@@ -17,7 +16,9 @@ init(L) ->
       end;
     {_, _, process, Pid, Reason} ->
       io:format("Process ~p died with reason ~p ~n", [Pid, Reason]),
-      init(lists:delete(Pid, L))
+      Tmp = lists:delete(Pid, L),
+      io:format("[Server] Actual places list: ~p ~n", [Tmp]),
+      init(Tmp)
       % can we use -- instead delete? 
   end.
 

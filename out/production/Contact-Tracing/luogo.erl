@@ -15,7 +15,7 @@ init() ->
    visit_place([]).
 
 visit_place(L) ->
-    io:format("[Luogo] Utenti nel luogo: ~p ~n", [L]),
+    %io:format("[Luogo] Utenti nel luogo: ~p ~n", [L]),
     receive 
         {begin_visit, PID, Ref} ->
             % {Pid, Ref} vs Ref (a cosa serve Ref? Forse perché utente in macchine diverse
