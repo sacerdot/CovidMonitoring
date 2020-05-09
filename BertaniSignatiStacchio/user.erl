@@ -9,10 +9,12 @@
 -module(user).
 -author("Lorenzo_Stacchio").
 %% API
--export([user/0, location_manager/1, get_places/3, test_manager/0, server/1, simple_location/1, simple_hospital/0, visit_manager/1]).
+-export([user/0, places_manager/1, get_places/3, test_manager/0, server/1, simple_location/1, simple_hospital/0, visit_manager/1]).
 -define(TIMEOUT_LOCATION_MANAGER, 10000).
 -define(TIMEOUT_TEST_MANAGER, 30000).
--define(LIST_LOCATION_LENGTH, 3).
+
+% number of places a user keep track
+-define(USER_PLACES_NUMBER, 3).
 
 
 
@@ -33,21 +35,24 @@ server(L) ->
     {add_place, PL} -> server(L ++ [PL])
   end.
 
-
+% the parameter N is for distinguish between first and successive recursion
 simple_location(N) ->
-  %io:format("PID~p~n", [self()]),
-  if
-    N == 1 -> server ! {add_place, self()}, simple_location(0);
+  if %successive recursion case
+    N == 1 ->
+      % send a message to the server adding a new location
+      server ! {add_place, self()}, simple_location(0);
     true ->
       sleep(200),
+      % probability of 0,1 % to die for location
       C = rand:uniform(10000),
-      if
-        C < 10 -> %io:format("C in random dead~p~n", [C]),
+      case (C < 10) of
+        true -> %io:format("C in random dead~p~n", [C]),
           io:format("Death of ~p~n", [self()]),
+          % update server and location manager
           server ! {remove_place, self()},
-          location_manager ! {luogo_morto, self()},
+          places_manager ! {luogo_morto, self()},
           exit(luogo_morto2);
-        true -> simple_location(0)
+        false -> simple_location(0)
       end
   end.
 
@@ -56,9 +61,9 @@ simple_hospital() ->
   receive
     {test_me, PID} ->
       P = rand:uniform(4),
-      if
-        P == 1 -> PID ! {positive};
-        true -> PID ! {negative}
+      case (P == 1) of
+        true -> PID ! {positive};
+        false -> PID ! {negative}
       end,
       simple_hospital()
   end.
@@ -66,20 +71,25 @@ simple_hospital() ->
 %----------------------USER----------------------
 %-----------Topology maintenance protocol-----------
 
+get_random_elements_from_list(ACTIVE_PLACES,N, LIST_USER) ->
+  if length(LIST_USER)<N ->
+    X = rand:uniform(length(ACTIVE_PLACES)),
+    get_random_elements_from_list(lists:delete(lists:nth(X,ACTIVE_PLACES),ACTIVE_PLACES),
+      N, lists:append(LIST_USER, [lists:nth(X, ACTIVE_PLACES)]));
+  true ->
+    LIST_USER
+  end.
+
+% retrieves N places and add their PID to LIST_TO_RETURN, answer to PID when completed
 get_places(N, LIST_TO_RETURN, PID) ->
   if
     length(LIST_TO_RETURN) < N ->
       server ! {get_places, self()},
       receive
-        {places, LR} ->
-          case length(LR) > N of
-            true ->
-              C = rand:uniform(length(LR)),
-              %io:format("Random ~p,~p,~p,~p~n", [length(LR), N, length(LIST_TO_RETURN), C]), %lists:delete(lists:nth(C, LR), LR),
-              case lists:member(lists:nth(C, LR), LIST_TO_RETURN) of
-                true -> get_places(N, LIST_TO_RETURN, PID);
-                false -> get_places(N, lists:append(LIST_TO_RETURN, [lists:nth(C, LR)]), PID)
-              end;
+        {places, ACTIVE_PLACES} ->
+          case length(ACTIVE_PLACES) > N of
+            true -> get_random_elements_from_list(ACTIVE_PLACES,N,LIST_TO_RETURN);
+            % not enough active places, die
             false -> exit(self(), kill)
           end
       end;
@@ -88,25 +98,27 @@ get_places(N, LIST_TO_RETURN, PID) ->
   end.
 
 
-location_manager(L) ->
+places_manager(L) ->
   io:format("LOCATION MANTAINER~p,~p,~n", [L, length(L)]),
   process_flag(trap_exit, true),
   %link(server),
   sleep(?TIMEOUT_LOCATION_MANAGER),
-  PID_GETTER = spawn(?MODULE, get_places, [?LIST_LOCATION_LENGTH, L, self()]),
+  % spawn a process to asynchronously retrieve {USER_PLACES_NUMBER} active places
+  PID_GETTER = spawn(?MODULE, get_places, [?USER_PLACES_NUMBER, L, self()]),
   receive
     {'EXIT', PLACE_PID, Reason} ->
       io:format("Post mortem EXIT1 ~p, ~n",[Reason]),
+
         case  length(L) > 0 of
-        true -> exit(PID_GETTER, kill),
-          io:format("Post mortem EXIT2 ~p,~p,~p,~n", [PLACE_PID, L--[PLACE_PID], length(L--[PLACE_PID])]),
-          location_manager(L--[PLACE_PID]);
-        false -> exit(PID_GETTER, kill), location_manager(L)
-      end;
+          true -> exit(PID_GETTER, kill),
+            io:format("Post mortem EXIT2 ~p,~p,~p,~n", [PLACE_PID, L--[PLACE_PID], length(L--[PLACE_PID])]),
+            places_manager(L--[PLACE_PID]);
+          false -> exit(PID_GETTER, kill), places_manager(L)
+        end;
     {new_places, LR} ->
       [link(PID) || PID <- LR],
       io:format("Link fatto EXIT~n",[]),
-      location_manager(LR)
+      places_manager(LR)
   end.
 
 %-----------Visit protocol-----------
@@ -124,9 +136,9 @@ visit_manager(L) ->
     true ->
       io:format("VISIT MANAGER TRUE before ~p ~n", [L]),
       receive
-      {new_places, UL} ->
-        io:format("VISIT MANAGER TRUE after ~p ~n", [UL]),
-        visit_manager(UL)
+      {new_places, UL2} ->
+        io:format("VISIT MANAGER TRUE after ~p ~n", [UL2]),
+        visit_manager(UL2)
       end;
     false ->
       io:format("VISIT MANAGER FALSE ~p ~n", [L]),
@@ -141,6 +153,8 @@ visit_manager(L) ->
   end.
 
 %-----------Test protocol-----------
+
+% user ask hospital to make illness tests
 test_manager() ->
   sleep(?TIMEOUT_TEST_MANAGER),
   case (rand:uniform(4) == 1) of
@@ -153,28 +167,28 @@ test_manager() ->
     {positive} -> io:format("~p: Entro in quarantena~n", [self()]), exit(quarantena);
     {negative} -> io:format("~p NEGATIVO~n", [self()]), test_manager()
   end.
-%-----------Monitor  protocol-----------
 
 %-----------Main-----------
 %TODO: Manage the death of user() when one from M,T dies with a MONITOR.
 user() ->
   %mettere link al server
   N = lists:seq(0, 10),
-  S = spawn_link(?MODULE, server, [[]]),
-  register(server, S), %rendo pubblico associazione nome PID
+  SERVER = spawn_link(?MODULE, server, [[]]),
+  register(server, SERVER), %rendo pubblico associazione nome PID
+  % spawn N locations
   [spawn(?MODULE, simple_location, [1]) || X <- N],
-  io:format("SERVER SPAWNED~p~n", [S]),
-  M = spawn_link(?MODULE, location_manager, [[]]),
-  register(location_manager, M),
-  io:format("LOCATION MANAGER SPAWNED~p~n", [M]),
-  H = spawn_link(?MODULE, simple_hospital, []),
-  register(hospital, H),
-  io:format("HOSPITAL SPAWNED~p~n", [H]),
-  V = spawn_link(?MODULE, visit_manager, [[]]),
-  register(visit_manager, V),
-  io:format("VISITOR MANAGER SPAWNED~p~n", [V]),
-  T = spawn_link(?MODULE, test_manager, []),
-  register(test_manager, T),
-  io:format("TEST MANAGER SPAWNED~p~n", [T]).
+  io:format("SERVER SPAWNED~p~n", [SERVER]),
+  PLACES_MANAGER = spawn_link(?MODULE, places_manager, [[]]),
+  register(places_manager, PLACES_MANAGER),
+  io:format("LOCATION MANAGER SPAWNED~p~n", [PLACES_MANAGER]),
+  HOSPITAL = spawn_link(?MODULE, simple_hospital, []),
+  register(hospital, HOSPITAL),
+  io:format("HOSPITAL SPAWNED~p~n", [HOSPITAL]),
+  VISIT_MANAGER = spawn_link(?MODULE, visit_manager, [[]]),
+  register(visit_manager, VISIT_MANAGER),
+  io:format("VISITOR MANAGER SPAWNED~p~n", [VISIT_MANAGER]),
+  TEST_MANAGER = spawn_link(?MODULE, test_manager, []),
+  register(test_manager, TEST_MANAGER),
+  io:format("TEST MANAGER SPAWNED~p~n", [TEST_MANAGER]).
 
 
