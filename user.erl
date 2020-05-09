@@ -9,11 +9,7 @@
 -module(user).
 -author("Lorenzo_Stacchio").
 %% API
-<<<<<<< Updated upstream
--export([user/0, location_manager/1, get_places/3, test_manager/0, visit_manager/1, server/1, simple_location/1, simple_hospital/0]).
-=======
 -export([user/0, location_manager/1, get_places/3, test_manager/0, server/1, simple_location/1, simple_hospital/0, visit_manager/1]).
->>>>>>> Stashed changes
 -define(TIMEOUT_LOCATION_MANAGER, 10000).
 -define(TIMEOUT_TEST_MANAGER, 30000).
 -define(LIST_LOCATION_LENGTH, 3).
@@ -43,7 +39,7 @@ simple_location(N) ->
   if
     N == 1 -> server ! {add_place, self()}, simple_location(0);
     true ->
-      sleep(200),
+      sleep(300),
       C = rand:uniform(10000),
       if
         C < 10 -> %io:format("C in random dead~p~n", [C]),
@@ -88,7 +84,6 @@ get_places(N, LIST_TO_RETURN, PID) ->
           end
       end;
     true -> PID ! {new_places, LIST_TO_RETURN}, visit_manager ! {new_places, LIST_TO_RETURN}
-  %TODO: inserire messaggio a visits
   end.
 
 
@@ -115,7 +110,7 @@ location_manager(L) ->
 
 %-----------Visit protocol-----------
 visit_manager(L) ->
-  io:format("VISIT MANAGER init ~p~p~n", [L,self()]),
+  %io:format("VISIT MANAGER init ~p~p~n", [L,self()]),
   % Not blocking receive to get places updates (if any)
   receive
     {new_places, UL} ->
@@ -126,14 +121,14 @@ visit_manager(L) ->
   end,
   case length(L) == 0 of
     true ->
-      io:format("VISIT MANAGER TRUE before ~p ~n", [L]),
+      %io:format("VISIT MANAGER TRUE before ~p ~n", [L]),
       receive
-      {new_places, UL} ->
-        io:format("VISIT MANAGER TRUE after ~p ~n", [UL]),
-        visit_manager(UL)
+      {new_places, UL2} ->
+        %io:format("VISIT MANAGER TRUE after ~p ~n", [UL2]),
+        visit_manager(UL2)
       end;
     false ->
-      io:format("VISIT MANAGER FALSE ~p ~n", [L]),
+      %io:format("VISIT MANAGER FALSE ~p ~n", [L]),
       sleep(2 + rand:uniform(3)),
       % Ref unused actually
       Ref = make_ref(),
