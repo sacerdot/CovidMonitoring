@@ -1,10 +1,16 @@
 # CovidMonitoring
+
 <p align="center">
   <img src="icon.png"/>
 </p>
 A small project in Erlang to pass the exam of Emerging Programming Paradigms @ University of Bologna
 
 ## VERSIONE: 0.3
+=======
+A small project in Erlang to pass the exam of Emerging Programming Paradigms @ University of Bologna
+
+## VERSIONE: 0.4
+>>>>>>> upstream/master
 
 ## SCOPO DEL PROGETTO:
 
@@ -53,6 +59,11 @@ tracciamento dei contatti fra portatori del virus.
          il nuovo arrivato.
 
          PID1 ! {contact, PID2}
+
+  * CICLO DI VITA
+
+     1) ogni qualvolta un luogo viene visitato ha il 10% di probabilità di
+        chiudere, ovvero l'attore termina con successo
 
 - Un utente implementa i seguenti protocolli.
   Può farlo delegando il lavoro ad altri attori da lui creati.
