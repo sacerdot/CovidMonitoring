@@ -9,11 +9,7 @@
 -module(user).
 -author("Lorenzo_Stacchio").
 %% API
-<<<<<<< Updated upstream
--export([user/0, location_manager/1, get_places/3, test_manager/0, visit_manager/1, server/1, simple_location/1, simple_hospital/0]).
-=======
 -export([user/0, location_manager/1, get_places/3, test_manager/0, server/1, simple_location/1, simple_hospital/0, visit_manager/1]).
->>>>>>> Stashed changes
 -define(TIMEOUT_LOCATION_MANAGER, 10000).
 -define(TIMEOUT_TEST_MANAGER, 30000).
 -define(LIST_LOCATION_LENGTH, 3).
