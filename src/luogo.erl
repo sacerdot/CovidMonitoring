@@ -31,12 +31,12 @@ visit_place(L) ->
 
 contact_tracing(_, []) -> ok;
 contact_tracing(NewUser, [PidOldUser | T]) ->  
-    io:format("[Luogo] Lancio del dado per il contatto del nuovo utente ~p ~n", [NewUser]),
+    %io:format("[Luogo] Lancio del dado per il contatto del nuovo utente ~p ~n", [NewUser]),
     case rand:uniform(1) of
-        1 -> NewUser ! {contact, PidOldUser},
-        io:format("[Luogo] Contatto avvenuto tra user nuovo ~p e ~p ~n", [NewUser, PidOldUser]);
-        _ -> ok,
-        io:format("[Luogo] Nessun contatto avvenuto tra user nuovo ~p e ~p ~n", [NewUser, PidOldUser])
+        1 -> NewUser ! {contact, PidOldUser};
+        %io:format("[Luogo] Contatto avvenuto tra user nuovo ~p e ~p ~n", [NewUser, PidOldUser]);
+        _ -> ok
+        %io:format("[Luogo] Nessun contatto avvenuto tra user nuovo ~p e ~p ~n", [NewUser, PidOldUser])
     end,
     contact_tracing(NewUser, T).
 
