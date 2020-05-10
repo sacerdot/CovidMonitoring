@@ -33,7 +33,7 @@ visits(L) ->
           U ! ko,
           visits(L)
       end
-    end.
+  end.
 
 %-----------Contact tracing protocol-----------
 touch(_, []) -> done;

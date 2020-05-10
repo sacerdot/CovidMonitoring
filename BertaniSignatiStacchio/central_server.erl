@@ -35,4 +35,4 @@ run() ->
     {'EXIT',FromPid,Reason} ->
       io:format("Place ~p is dead ~n",[FromPid]),
       PIDLIST = lists:delete(FromPid,PIDLIST)
-   end.
+  end.
