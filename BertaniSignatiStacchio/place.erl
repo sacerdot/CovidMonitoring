@@ -19,28 +19,32 @@ init() ->
   visits([]).
 
 %-----------Visit protocol-----------
-visits(L) ->
+visits(USER_LIST) ->
   receive
-    {begin_visit, U, _} ->
-      touch(U, L),
-      visits(L ++ [U]);
-    {end_visit, U, _} ->
-      case lists:member(U,L) of
+    {begin_visit, USER_START, _} ->
+      % TODO implement 10% probability to close the place when it's visited
+      touch(USER_START, USER_LIST),
+      visits(USER_LIST ++ [USER_START]);
+    {end_visit, USER_END, _} ->
+      case lists:member(USER_END, USER_LIST) of
+        %TODO current user is not expecting an answer after end visit, so either implement it ot remove it from here
         true ->
-          U ! ok,
-          visits(L -- [U]);
+          USER_END ! ok,
+          visits(USER_LIST -- [U]);
         false ->
-          U ! ko,
-          visits(L)
+          USER_END ! ko,
+          visits(USER_LIST)
       end
   end.
 
 %-----------Contact tracing protocol-----------
+
+% for each user in the place create contact with probability of 25%
 touch(_, []) -> done;
-touch(U, [H|T]) ->
+touch(USER, [H|T]) ->
   V = rand:uniform(4),
   if  V == 1 ->
-    H ! {contact, U},
-    U ! {contact, H}
+    H ! {contact, USER},
+    USER ! {contact, H}
   end,
-  touch(U, T).
+  touch(USER, T).
