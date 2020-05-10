@@ -9,7 +9,7 @@
 -module(user).
 -author("Lorenzo_Stacchio").
 %% API
--export([user/0, places_manager/1, get_places/3, test_manager/0, server/1, simple_location/1, simple_hospital/0, visit_manager/1]).
+-export([user/0, places_manager/1, get_places/3, test_manager/0, server/1, simple_place/1, simple_hospital/0, visit_manager/1]).
 -define(TIMEOUT_PLACE_MANAGER, 10000).
 -define(TIMEOUT_TEST_MANAGER, 500000).
 % number of places a user keep track
@@ -26,7 +26,7 @@ flush() ->
 sleep(N) -> receive after N -> ok end.
 
 
-%-----------SERVER, LOCATION,HOSPITAL SIMULATED-----------
+%-----------SERVER, PLACES,HOSPITAL SIMULATED-----------
 server(L) ->
   process_flag(trap_exit, true),
   % link server to all the places in its list
@@ -46,22 +46,22 @@ server(L) ->
   end.
 
 % the parameter N is for distinguish between first and successive recursion
-simple_location(N) ->
+simple_place(N) ->
   if %successive recursion case
     N == 1 ->
-      % send a message to the server adding a new location
-      server ! {add_place, self()}, simple_location(0);
+      % send a message to the server adding a new place
+      server ! {add_place, self()}, simple_place(0);
     true ->
       sleep(100),
-      % probability of 0,1 % to die for location
+      % probability of 0,1 % to die for place
       C = rand:uniform(10000),
       case (C < 10) of
         true -> %io:format("C in random dead~p~n", [C]),
           io:format("Death of ~p~n", [self()]),
-          % update server and location manager
+          % update server and place manager
           server ! {remove_place, self()},
           exit(luogo_morto);
-        false -> simple_location(0)
+        false -> simple_place(0)
       end
   end.
 
@@ -97,7 +97,9 @@ get_places(N, LIST_TO_RETURN, PID) ->
       receive
         {places, ACTIVE_PLACES} ->
           case length(ACTIVE_PLACES) > N of
-            true -> get_random_elements_from_list(ACTIVE_PLACES,N,LIST_TO_RETURN);
+            true ->
+              RANDOM_PLACES = get_random_elements_from_list(ACTIVE_PLACES,N,LIST_TO_RETURN),
+              get_places(N,RANDOM_PLACES,PID);
             % not enough active places, die
             false -> exit(self(), kill)
           end
@@ -117,12 +119,12 @@ places_manager(USER_PLACES_LIST) ->
     {'EXIT', PID, Reason} -> % a place have died
       case PID == whereis(server) of % if the server died
         true -> exit(kill); % kill the places_manager
-        false -> io:format("Post mortem LOCATION MANAGER1 ~p,~p, ~n", [PID, Reason]), %otherwise it's a place that died
+        false -> io:format("Post mortem PLACE MANAGER1 ~p,~p, ~n", [PID, Reason]), %otherwise it's a place that died
           % check that the user places list is not empty becuase it can be in a state where it has requested new places but
           % there are any available and the last one it had, has died
           case length(USER_PLACES_LIST) > 0 of
             true -> exit(PID_GETTER, kill),
-              io:format("Post mortem LOCATION MANAGER2 ~p,~p,~p,~n", [PID, USER_PLACES_LIST--[PID], length(USER_PLACES_LIST--[PID])]),
+              io:format("Post mortem PLACE MANAGER2 ~p,~p,~p,~n", [PID, USER_PLACES_LIST--[PID], length(USER_PLACES_LIST--[PID])]),
               unlink(PID),
               % clear the message queue
               flush(),
@@ -131,7 +133,7 @@ places_manager(USER_PLACES_LIST) ->
           end
       end;
     {new_places, NEW_PLACES} -> % message received from the spawned process that asked the new places
-      io:format("LOCATION MANTAINER UPDATED~p,~p,~n", [NEW_PLACES, length(NEW_PLACES)]),
+      io:format("PLACES MANTAINER UPDATED~p,~p,~n", [NEW_PLACES, length(NEW_PLACES)]),
       % create a link to all this new places
       [link(PID) || PID <- NEW_PLACES],
       io:format("Link fatto EXIT~n", []),
@@ -206,12 +208,12 @@ user() ->
   N = lists:seq(0, 10),
   SERVER = spawn_link(?MODULE, server, [[]]),
   register(server, SERVER), %rendo pubblico associazione nome PID
-  % spawn N locations
-  [spawn(?MODULE, simple_location, [1]) || X <- N],
+  % spawn N places
+  [spawn(?MODULE, simple_place, [1]) || X <- N],
   io:format("SERVER SPAWNED~p~n", [SERVER]),
   PLACES_MANAGER = spawn_link(?MODULE, places_manager, [[]]),
   register(places_manager, PLACES_MANAGER),
-  io:format("LOCATION MANAGER SPAWNED~p~n", [PLACES_MANAGER]),
+  io:format("PLACES MANAGER SPAWNED~p~n", [PLACES_MANAGER]),
   HOSPITAL = spawn_link(?MODULE, simple_hospital, []),
   register(hospital, HOSPITAL),
   io:format("HOSPITAL SPAWNED~p~n", [HOSPITAL]),
