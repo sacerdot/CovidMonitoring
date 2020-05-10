@@ -30,7 +30,7 @@ visits(USER_LIST) ->
         %TODO current user is not expecting an answer after end visit, so either implement it ot remove it from here
         true ->
           USER_END ! ok,
-          visits(USER_LIST -- [U]);
+          visits(USER_LIST -- [USER_END]);
         false ->
           USER_END ! ko,
           visits(USER_LIST)
