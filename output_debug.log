@@ -1,0 +1,52 @@
+[User] <0.110.0>
+[ActorDispatcher] User <0.110.0> actorList <0.111.0> 
+[User] <0.112.0>
+[ActorDispatcher] User <0.110.0> checklist <0.113.0> 
+[ActorDispatcher] User <0.112.0> actorList <0.114.0> 
+[User] <0.115.0>
+[ActorDispatcher] User <0.110.0> visitplace <0.116.0> 
+[ActorDispatcher] User <0.115.0> actorList <0.117.0> 
+[ActorDispatcher] User <0.112.0> checklist <0.118.0> 
+[User] <0.119.0>
+[ActorDispatcher] User <0.110.0> actorContactTrace <0.120.0> 
+[ActorDispatcher] User <0.119.0> actorList <0.121.0> 
+[ActorDispatcher] User <0.115.0> checklist <0.122.0> 
+[ActorDispatcher] User <0.112.0> visitplace <0.123.0> 
+[User] <0.124.0>
+[ActorDispatcher] User <0.110.0> ActorRequiredTest <0.125.0> 
+[ActorDispatcher] User <0.124.0> actorList <0.126.0> 
+[ActorDispatcher] User <0.119.0> checklist <0.127.0> 
+[ActorDispatcher] User <0.115.0> visitplace <0.128.0> 
+[ActorDispatcher] User <0.112.0> actorContactTrace <0.129.0> 
+[User] <0.131.0>
+[ActorDispatcher] User <0.110.0> ActorMergeList <0.130.0> 
+[ActorDispatcher] User <0.124.0> checklist <0.132.0> 
+[ActorDispatcher] User <0.119.0> visitplace <0.133.0> 
+[ActorDispatcher] User <0.115.0> actorContactTrace <0.134.0> 
+[ActorDispatcher] User <0.112.0> ActorRequiredTest <0.135.0> 
+[ActorDispatcher] User <0.131.0> actorList <0.136.0> 
+[ActorDispatcher] User <0.124.0> visitplace <0.137.0> 
+[ActorDispatcher] User <0.119.0> actorContactTrace <0.138.0> 
+[ActorDispatcher] User <0.115.0> ActorRequiredTest <0.139.0> 
+[ActorDispatcher] User <0.112.0> ActorMergeList <0.140.0> 
+[ActorDispatcher] User <0.131.0> checklist <0.141.0> 
+ok
+[ActorDispatcher] User <0.124.0> actorContactTrace <0.142.0> 
+[ActorDispatcher] User <0.119.0> ActorRequiredTest <0.143.0> 
+[ActorDispatcher] User <0.115.0> ActorMergeList <0.144.0> 
+[ActorDispatcher] User <0.131.0> visitplace <0.145.0> 
+[ActorDispatcher] User <0.124.0> ActorRequiredTest <0.146.0> 
+[ActorDispatcher] User <0.119.0> ActorMergeList <0.148.0> 
+[ActorDispatcher] User <0.131.0> actorContactTrace <0.149.0> 
+[ActorDispatcher] User <0.124.0> ActorMergeList <0.150.0> 
+[ActorDispatcher] User <0.131.0> ActorRequiredTest <0.151.0> 
+[ActorDispatcher] User <0.131.0> ActorMergeList <0.153.0> 
+[User] <0.115.0> Sono negativo 
+[User] <0.112.0> Sono negativo 
+[User] <0.112.0> linked to <0.131.0>
+[User] <0.112.0> Sono negativo 
+[User] <0.115.0> linked to <0.124.0>
+[User] <0.115.0> Sono negativo 
+[User] <0.131.0> sono positivo 
+[User] <0.112.0> enter quarantine from <0.131.0> 
+[User] <0.115.0> enter quarantine from <0.115.0> 

@@ -23,12 +23,19 @@ mainU() ->
   end.
 
 actorDispatcher() ->
+  process_flag(trap_exit, true),
   ActorList = spawn_link(?MODULE, list, [self(), []]),
-  spawn_link(?MODULE, check_list, [ActorList, self()]),
-  spawn_link(?MODULE, visit_places, [ActorList, self()]),
+  io:format("[ActorDispatcher] User ~p actorList ~p ~n", [self(), ActorList]),
+  CheckList = spawn_link(?MODULE, check_list, [ActorList, self()]),
+  io:format("[ActorDispatcher] User ~p checklist ~p ~n", [self(), CheckList]),
+  VisitPlace = spawn_link(?MODULE, visit_places, [ActorList, self()]),
+  io:format("[ActorDispatcher] User ~p visitplace ~p ~n", [self(), VisitPlace]),
   ActorContactTrace = spawn_link(?MODULE, contact_tracing, [self()]),
+  io:format("[ActorDispatcher] User ~p actorContactTrace ~p ~n", [self(), ActorContactTrace]),
   ActorRequiredTest = spawn_link(?MODULE, require_test, [self()]),
+  io:format("[ActorDispatcher] User ~p ActorRequiredTest ~p ~n", [self(), ActorRequiredTest]),
   ActorMergeList = spawn_link(?MODULE, get_places_updates, [self(), ActorList]),
+  io:format("[ActorDispatcher] User ~p ActorMergeList ~p ~n", [self(), ActorMergeList]),
   loop(ActorContactTrace, ActorRequiredTest, ActorMergeList).
 
 loop(ContactTrace, RequiredTest, MergList) ->
@@ -39,6 +46,7 @@ loop(ContactTrace, RequiredTest, MergList) ->
     {contact, PID} -> ContactTrace ! {contact, PID};
     positive -> RequiredTest ! positive;
     negative -> RequiredTest ! negative;
+    {'EXIT', _, R} -> exit(R);
     Msg -> io:format("[Dispatcher] Messaggio non gestito: ~p~n", [Msg])
   end,
   loop(ContactTrace, RequiredTest, MergList).
@@ -57,7 +65,8 @@ list(PidDispatcher, L) ->
       [monitor(process, X) || X <- L1],
       list(PidDispatcher, L1 ++ L);
       % messages from a dead place (DOWN)
-    _ -> global:send(server, {get_places, PidDispatcher})
+    _ -> global:send(server, {get_places, PidDispatcher}),
+      list(PidDispatcher, L)
   end.
 
 %% TODO add to utils
@@ -131,13 +140,13 @@ contact_tracing(PidDispatcher) ->
       io:format("[User] ~p linked to ~p~n", [PidDispatcher, PID]),
       process_flag(trap_exit, true),
       contact_tracing(PidDispatcher);
-    {'EXIT', _, R} -> % TODO rewrite
+    {'EXIT', PidExit, R} -> % TODO rewrite
       case R of
         quarantine ->
-          io:format("[User] ~p enter quarantine ~n", [PidDispatcher]),
+          io:format("[User] ~p enter quarantine from ~p ~n", [PidDispatcher, PidExit]),
           exit(quarantine);
         positive ->
-          io:format("[User] ~p enter quarantine ~n", [PidDispatcher]),
+          io:format("[User] ~p enter quarantine from ~p ~n", [PidDispatcher, PidExit]),
           exit(quarantine);
         _ ->
           io:format("[User] ~p get an exit msg with reason ~p ~n", [PidDispatcher, R]),
@@ -148,7 +157,8 @@ contact_tracing(PidDispatcher) ->
   end.
 
 require_test(PidDispatcher) ->
-  sleep(30000),
+  %TODO should be 30000
+  sleep(3000),
   case rand:uniform(4) of
     1 ->
       global:send(hospital, {test_me, PidDispatcher}),
