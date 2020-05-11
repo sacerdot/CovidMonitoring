@@ -14,12 +14,23 @@ server2(Luoghi)->
                 false->server2(Luoghi ++ [PID_LUOGO])
             end;
         {get_places, PID} ->
-            PID ! {places, Luoghi},server2(Luoghi);
-        {ping,P}->
-            P ! pong,server2(Luoghi);
-        {'EXIT', Pid, _ErrorTerm} -> %attore luogo morto
-            case lists:member(Pid,Luoghi) of 
-                true ->io:format("Luogo ~p eliminato dalla lista ~n",[Pid]),server2(Luoghi -- [Pid]);
-                false -> server2(Luoghi) %quello che e' morto non e' un luogo
-            end            
+            PID ! {places, Luoghi},
+            server2(Luoghi);
+        {ping,Ref,P}->
+            P ! {pong,Ref},server2(Luoghi);
+        {'EXIT', Pid, CAUSA} -> 
+            case lists:member(Pid,Luoghi) of % quello che e' uscito e' un luogo
+                true  when (CAUSA == normal) -> %un luogo e' uscito normalmente dalla lista
+                    io:format("Luogo ~p eliminato dalla lista ~n",[Pid]),server2(Luoghi -- [Pid]);
+                true  when (CAUSA /= normal) -> %un luogo non  e' uscito normalmente dalla lista qundi anche il server esce
+                    exit(CAUSA);                
+                false -> % quello che e' morto non e' un luogo si guarda la causa
+                    case CAUSA of
+                        normal -> server2(Luoghi);
+                        quarantena -> server2(Luoghi); 
+                        positivo -> server2(Luoghi); 
+                        _ -> exit(CAUSA)        
+                    end
+            end
+                    
     end.
