@@ -98,8 +98,7 @@ get_places(N, LIST_TO_RETURN, PID) ->
         {places, ACTIVE_PLACES} ->
           case length(ACTIVE_PLACES) > N of
             true ->
-              RANDOM_PLACES = get_random_elements_from_list(ACTIVE_PLACES,N,LIST_TO_RETURN),
-              get_places(N,RANDOM_PLACES,PID);
+              get_places(N,get_random_elements_from_list(ACTIVE_PLACES,N,LIST_TO_RETURN),PID);
             % not enough active places, die
             false -> exit(self(), kill)
           end
@@ -110,6 +109,7 @@ get_places(N, LIST_TO_RETURN, PID) ->
 
 % responsibile to keeping up to {USER_PLACES_NUMBER} places
 places_manager(USER_PLACES_LIST) ->
+  %TODO: improve performances of update
   process_flag(trap_exit, true),
   link(whereis(server)),
   sleep(?TIMEOUT_PLACE_MANAGER),
@@ -125,7 +125,7 @@ places_manager(USER_PLACES_LIST) ->
           case length(USER_PLACES_LIST) > 0 of
             true -> exit(PID_GETTER, kill),
               io:format("Post mortem PLACE MANAGER2 ~p,~p,~p,~n", [PID, USER_PLACES_LIST--[PID], length(USER_PLACES_LIST--[PID])]),
-              unlink(PID),
+              %unlink(PID),
               % clear the message queue
               flush(),
               places_manager(USER_PLACES_LIST--[PID]);
@@ -149,7 +149,7 @@ visit_manager(USER_PLACES) ->
   receive
     {'EXIT', PLACE_PID, Reason} ->
       io:format("Post mortem in VISIT ~p,~p, ~n", [USER_PLACES, Reason]),
-      unlink(PLACE_PID),
+      %unlink(PLACE_PID),
       flush(),
       visit_manager(USER_PLACES--[PLACE_PID]);
     {new_places, UL} ->
@@ -165,7 +165,7 @@ visit_manager(USER_PLACES) ->
       receive
         {'EXIT', PLACE_PID2, Reason2} ->
           io:format("Post mortem in VISIT EXIT2 ~p, ~n", [Reason2]),
-          unlink(PLACE_PID2),
+          %unlink(PLACE_PID2),
           flush(),
           visit_manager(USER_PLACES--[PLACE_PID2]);
         {new_places, UL2} ->
