@@ -1,0 +1,19 @@
+Per eseguire su nodi multipli suggerisco il seguente approccio:
+
+1) creare un file ~/.erlang con le seguenti linee (dopo aver sostituito
+   zenone.casamia.org con l'indirizzo della vostra macchina
+
+io:format("executing user profile .erlang\n",[]).
+io:format("ping result: ~p~n", [net_adm:ping('server@zenone.casamia.org')]).
+receive after 1000 -> ok end.
+
+2) lanciare uno dei file da voi fornito con
+
+   erl -name nome_del_nodo -s nome_del_file
+
+   (il nome del nodo server deve essere server in quanto hard-coded nel file
+    ~/.erlang)
+
+   Es.  erl -name server -s server
+        erl -name utenti_RossiVerdi -s utenti
+        erl -name luoghi_FantozziFracchia -s luoghi
