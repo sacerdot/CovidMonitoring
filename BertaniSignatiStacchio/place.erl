@@ -22,17 +22,19 @@ init() ->
 visits(USER_LIST) ->
   receive
     {begin_visit, USER_START, _} ->
-      % TODO implement 10% probability to close the place when it's visited
-      touch(USER_START, USER_LIST),
-      visits(USER_LIST ++ [USER_START]);
+      V = rand:uniform(100),
+      case (V =< 10) of
+        true ->
+          exit(luogo_morto);
+        false ->
+          touch(USER_START, USER_LIST),
+          visits(USER_LIST ++ [USER_START])
+      end;
     {end_visit, USER_END, _} ->
       case lists:member(USER_END, USER_LIST) of
-        %TODO current user is not expecting an answer after end visit, so either implement it ot remove it from here
         true ->
-          USER_END ! ok,
           visits(USER_LIST -- [USER_END]);
         false ->
-          USER_END ! ko,
           visits(USER_LIST)
       end
   end.

@@ -82,8 +82,12 @@ simple_hospital() ->
 get_random_elements_from_list(ACTIVE_PLACES, N, LIST_USER) ->
   if length(LIST_USER) < N ->
     X = rand:uniform(length(ACTIVE_PLACES)),
-    get_random_elements_from_list(lists:delete(lists:nth(X, ACTIVE_PLACES), ACTIVE_PLACES),
-      N, lists:append(LIST_USER, [lists:nth(X, ACTIVE_PLACES)]));
+    case lists:member(lists:nth(X,ACTIVE_PLACES), LIST_USER) of
+      true -> get_random_elements_from_list(ACTIVE_PLACES, N, LIST_USER);
+      false ->
+        get_random_elements_from_list(lists:delete(lists:nth(X,ACTIVE_PLACES),ACTIVE_PLACES),
+          N, lists:append(LIST_USER, [lists:nth(X, ACTIVE_PLACES)]))
+    end;
     true ->
       LIST_USER
   end.
@@ -110,11 +114,16 @@ get_places(N, LIST_TO_RETURN, PID) ->
 
 % responsibile to keeping up to {USER_PLACES_NUMBER} places
 places_manager(USER_PLACES_LIST) ->
-  %TODO: improve performances of update
   process_flag(trap_exit, true),
   link(whereis(server)),
-  sleep(?TIMEOUT_PLACE_MANAGER),
   PID_GETTER = spawn(?MODULE, get_places, [?USER_PLACES_NUMBER, USER_PLACES_LIST, self()]),
+  case length(USER_PLACES_LIST) < ?USER_PLACES_NUMBER of
+    true ->
+      ok;
+    false ->
+      exit(PID_GETTER, kill),
+      sleep(?TIMEOUT_PLACE_MANAGER)
+  end,
   % spawn a process to asyncronisly retrieve up to {USER_PLACES_NUMBER} places
   receive
     {'EXIT', PID, Reason} -> % a place have died
@@ -124,7 +133,7 @@ places_manager(USER_PLACES_LIST) ->
           % check that the user places list is not empty because it can be in a state where it has requested new places but
           % there are any available and the last one it had, has died
           case length(USER_PLACES_LIST) > 0 of
-            true -> exit(PID_GETTER, kill),
+            true -> %exit(PID_GETTER, kill),
               io:format("Post mortem PLACE MANAGER2 ~p,~p,~p,~n", [PID, USER_PLACES_LIST--[PID], length(USER_PLACES_LIST--[PID])]),
               % clear the message queue
               flush(),
@@ -231,5 +240,3 @@ user() ->
   TEST_MANAGER = spawn_link(?MODULE, test_manager, []),
   register(test_manager, TEST_MANAGER),
   io:format("TEST MANAGER SPAWNED~p~n", [TEST_MANAGER]).
-
-
