@@ -108,18 +108,17 @@ get_places(N, LIST_TO_RETURN, PID) ->
 
 
 
-
 % responsibile to keeping up to {USER_PLACES_NUMBER} places
 places_manager(USER_PLACES_LIST) ->
   %TODO: improve performances of update
   process_flag(trap_exit, true),
   link(whereis(server)),
   sleep(?TIMEOUT_PLACE_MANAGER),
-  % spawn a process to asyncronisly retrieve up to {USER_PLACES_NUMBER} places
   PID_GETTER = spawn(?MODULE, get_places, [?USER_PLACES_NUMBER, USER_PLACES_LIST, self()]),
+  % spawn a process to asyncronisly retrieve up to {USER_PLACES_NUMBER} places
   receive
     {'EXIT', PID, Reason} -> % a place have died
-      case PID == whereis(server) of % if the server died
+      case PID == whereis(server) of % if the server dies
         true -> exit(kill); % kill the places_manager
         false -> io:format("Post mortem PLACE MANAGER1 ~p,~p, ~n", [PID, Reason]), %otherwise it's a place that died
           % check that the user places list is not empty because it can be in a state where it has requested new places but
@@ -143,6 +142,7 @@ places_manager(USER_PLACES_LIST) ->
 
 %-----------Visit protocol-----------
 visit_manager(USER_PLACES,CONTACT_LIST) ->
+  %TODO SOLVE BLOCKING RECEIVE
   process_flag(trap_exit, true),
   %io:format("VISIT MANAGER init ~p~p~n", [L,self()]),
   % Not blocking receive to get places updates (if any)
@@ -217,7 +217,7 @@ user() ->
   SERVER = spawn_link(?MODULE, server, [[]]),
   register(server, SERVER), %rendo pubblico associazione nome PID
   % spawn N places
-  [spawn(?MODULE, simple_place, [1]) || X <- N],
+  [spawn(?MODULE, simple_place, [1]) || _ <- N],
   io:format("SERVER SPAWNED~p~n", [SERVER]),
   PLACES_MANAGER = spawn_link(?MODULE, places_manager, [[]]),
   register(places_manager, PLACES_MANAGER),
