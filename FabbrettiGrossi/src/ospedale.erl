@@ -1,12 +1,15 @@
--module(hospital).
--export([init/0, loop/0]).
+-module(ospedale).
+-export([start/0, loop/0]).
 
 
-init() ->
+start() ->
     Result = global:register_name(hospital, self()),
     case Result of
-	yes -> loop();
-	no -> io:format("Something went wrong during hospital init.~n")
+	yes -> 
+	    io:format("L'ospedale si è registrato correttamente.~n"),
+	    loop();
+	no -> 
+	    io:format("Qualcosa è andato storto nella registrazione dell'ospedale.~n")
     end.
 
 loop() ->
