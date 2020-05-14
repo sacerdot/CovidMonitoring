@@ -4,27 +4,35 @@
 sleep(T) ->
   receive after T -> ok end.
 
-init_server(L) ->
+loop(L) ->
   receive
     {new_place, PID} ->
       %io:format("[Server] Received new_place from ~p ~n", [PID]),
       %io:format("[Server] Nuovo place attivo: ~p ~n", [Msg]),
       case lists:member(PID, L) of
-        true -> init_server(L);
-        false -> 
+        true -> loop(L);
+        false ->
           monitor(process, PID),
-          init_server([ PID | L ]) 
+          loop([ PID | L ])
       end;
-      % DOWN - un luogo monitorato muore
+  % DOWN - un luogo monitorato muore
     {_, _, process, Pid, Reason} ->
-     % io:format("Process ~p died with reason ~p ~n", [Pid, Reason]),
+      io:format("[Server] Process ~p died with reason ~p ~n", [Pid, Reason]),
 %%      TODO: use the utility function set_subtract
-      init_server(lists:delete(Pid, L));
+      loop(lists:delete(Pid, L));
     {get_places, PID} ->
       %io:format("[Server] Received request get_places from User ~p ~n", [PID]),
       PID ! {places, L}, % L = lista dei Pid dei luoghi attivi
-      init_server(L)
+      loop(L);
+    {'EXIT', Sender, R} ->
+      io:format("[Server] ~p received exit from ~p with: ~p~n", [self(), Sender, R]),
+      loop(L)
   end.
+
+
+init_server(L) ->
+  process_flag(trap_exit, true),
+  loop(L).
 
 % test
 % luogo() ->

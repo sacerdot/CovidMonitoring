@@ -46,7 +46,7 @@ loop(ContactTrace, RequiredTest, MergList) ->
     {contact, PID} -> ContactTrace ! {contact, PID};
     positive -> RequiredTest ! positive;
     negative -> RequiredTest ! negative;
-    {'EXIT', _, R} -> exit(R);
+    {'EXIT', Sender, R} -> io:format("[Dispatcher] ~p received exit from ~p with: ~p~n", [self(), Sender, R]), exit(R);
     Msg -> io:format("[Dispatcher] Messaggio non gestito: ~p~n", [Msg])
   end,
   loop(ContactTrace, RequiredTest, MergList).
@@ -65,7 +65,8 @@ list(PidDispatcher, L) ->
       [monitor(process, X) || X <- L1],
       list(PidDispatcher, L1 ++ L);
       % messages from a dead place (DOWN)
-    _ -> global:send(server, {get_places, PidDispatcher}),
+    _ ->
+      global:send(server, {get_places, PidDispatcher}),
       list(PidDispatcher, L)
   end.
 
@@ -134,12 +135,18 @@ visit_places(ActorList, PidDispatcher) ->
   end.
 
 contact_tracing(PidDispatcher) ->
+  process_flag(trap_exit, true),
+  contact_tracing_loop(PidDispatcher).
+contact_tracing_loop(PidDispatcher) ->
   receive
     {contact, PID} ->
-      link(PID),
-      io:format("[User] ~p linked to ~p~n", [PidDispatcher, PID]),
-      process_flag(trap_exit, true),
-      contact_tracing(PidDispatcher);
+      try
+        link(PID),
+        io:format("[User] ~p linked to ~p~n", [PidDispatcher, PID])
+      catch X ->
+        io:format("[User] ~p unable to link to ~p error ~p~n", [PidDispatcher, PID, X])
+      end,
+      contact_tracing_loop(PidDispatcher);
     {'EXIT', PidExit, R} -> % TODO rewrite
       case R of
         quarantine ->
@@ -149,7 +156,7 @@ contact_tracing(PidDispatcher) ->
           io:format("[User] ~p enter quarantine from ~p ~n", [PidDispatcher, PidExit]),
           exit(quarantine);
         _ ->
-          io:format("[User] ~p get an exit msg with reason ~p ~n", [PidDispatcher, R]),
+          io:format("[User] <D ~p, U ~p> get an exit msg from ~p with reason ~p ~n", [PidDispatcher,self(), PidExit, R]),
           % TODO check logic
           exit(R)
       end;
@@ -179,8 +186,9 @@ require_test(PidDispatcher) ->
 test() ->
   S = spawn(server, init_server, [[]]),
   global:register_name(server, S),
-  spawn(hospital, main, []),
-
+  io:format("Server pid: ~p~n", [S]),
+  P = spawn(hospital, main, []),
+  io:format("Hospital pid: ~p~n", [P]),
   spawn(luogo, init_luogo, []),
   spawn(luogo, init_luogo, []),
   spawn(luogo, init_luogo, []),
@@ -191,6 +199,22 @@ test() ->
   spawn(luogo, init_luogo, []),
   spawn(luogo, init_luogo, []),
 
+
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
+  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
   io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
   io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
   io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
