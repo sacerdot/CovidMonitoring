@@ -6,7 +6,8 @@
 create_users(Num) ->
     case Num of
         0 -> ok;
-        _ ->    spawn(users, users_init, []),
+        _ ->    %spawn(users, users_init, []),
+                spawn(usersnew, users_init, []),
                 create_users(Num-1)
     end.
 

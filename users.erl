@@ -6,7 +6,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 users_init() ->
-	io:format("New User ~p~n",[self()]),
+	%io:format("New User ~p~n",[self()]),
 	link(global:whereis_name(server)),
     PidPlaces = spawn_link(?MODULE, fget_places, [3, self(), []]),
     PidTest = spawn_link(?MODULE, test_virus, [self()]),
@@ -19,8 +19,8 @@ users_init() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 user(UPlaces, UContacts, PidVisit, PidTest, PidPlaces) ->
-  io:format("Io ~p ho questi luoghi: ~p~n", [self(), UPlaces]),
-  io:format("Io ~p sono in contatto con : ~p~n", [self(), UContacts]),
+  %io:format("Io ~p ho questi luoghi: ~p~n", [self(), UPlaces]),
+  %io:format("Io ~p sono in contatto con : ~p~n", [self(), UContacts]),
   receive
     {contact, Pid} ->
 		%%Probabilmente il try catch si può rimuovere era per sicurezza
@@ -40,7 +40,7 @@ user(UPlaces, UContacts, PidVisit, PidTest, PidPlaces) ->
 	%Non riesco a capite perché come era fatto prima fosse bloccante e inchiodasse gli user
 	%così è brutto perché abbiamo rimesso in user messaggi non del prof
 	{place_usr, Places} ->
-		io:format("Io ~p ho i seguenti luoghi ~p~n", [self(), Places]),
+		%io:format("Io ~p ho i seguenti luoghi ~p~n", [self(), Places]),
 		case PidVisit of
 			0 ->
 				PidNewVisit = spawn_link(?MODULE, visit, [self(), Places]),
@@ -72,13 +72,13 @@ test_virus(Pid) ->
 			global:send(hospital, {test_me, Pid}),
 			receive
 				{test_result_u, RESULT} ->
-					%io:format("ho ricevuto il risultato ~p~n", [self()]),
+					%%io:format("ho ricevuto il risultato ~p~n", [self()]),
 					case RESULT of
 						positive ->
-							io:format("Sono positivo ~p~n", [Pid]),
+							%io:format("Sono positivo ~p~n", [Pid]),
 							exit(positive);
 						negative ->
-							io:format("Sono negativo ~p~n", [Pid]),
+							%io:format("Sono negativo ~p~n", [Pid]),
 							test_virus(Pid)
 					end
 			end
@@ -110,7 +110,7 @@ visit_place(Pid, UPlaces, PidVisit) -> %... oppure qui creo un altro attore che 
 	after util:rand_in_range(5000,10000) -> %fare la recive del messaggio exit positive?
         Place ! {end_visit, Pid, Ref},
 		PidVisit ! {end_visit, self()} %%Ci serve mandargli il pid?
-		%io:format("Io ~p ho finito la visita in ~p con ref ~p~n", [Pid, Place, Ref])
+		%%io:format("Io ~p ho finito la visita in ~p con ref ~p~n", [Pid, Place, Ref])
     end.
 
 
@@ -127,7 +127,7 @@ fget_places(N, Pid, PidPlace) ->
 			Pid ! {place_usr, ListPlaces},
 			fget_places(0, Pid, []);
 		{'DOWN', _ , process, PidPlace, _ } ->
-			io:format("Morto luogo ~p collegato a utente ~p~n", [PidPlace, Pid]),
+			%io:format("Morto luogo ~p collegato a utente ~p~n", [PidPlace, Pid]),
 			fget_places(1, Pid, [PidPlace])
 	end.
 
@@ -137,9 +137,9 @@ fget_places(N, Pid, PidPlace) ->
 
 
 get_list(_, List ,  0) -> List;
-get_list([], List, _) -> io:format("Non ho (~p) più posti ~p~n", [self(), List]),  List ;
+get_list([], List, _) -> ok; %io:format("Non ho (~p) più posti ~p~n", [self(), List]),  List ;
 get_list(Places, List, N) ->
-   % io:format("In get list il ~p places è : ~p e list è ~p ~n",[N, Places, List]),
+   % %io:format("In get list il ~p places è : ~p e list è ~p ~n",[N, Places, List]),
    X = lists:nth(rand:uniform(length(Places)), Places),
    monitor(process,X),
    get_list(Places -- [X], [X|List], N - 1).   %controllare che non viene tolto dal server
