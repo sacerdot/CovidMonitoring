@@ -1,5 +1,5 @@
 -module(util).
--export([probability/1, rand_in_range/2]).
+-export([probability/1, rand_in_range/2, sleep/1]).
 
 probability(N) ->
     P = rand:uniform(N),
@@ -11,5 +11,5 @@ probability(N) ->
 rand_in_range(Min, Max) ->
 	rand:uniform(Max-Min)+Min.
 
-sleep(N) ->
-   receive after N -> ok end.
+sleep(M) ->
+   receive after M -> ok end.

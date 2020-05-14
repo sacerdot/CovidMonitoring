@@ -3,7 +3,7 @@
 
 
 
-contacts(_, []) -> []; %qualcosa per ritornare ok?
+contacts(_, []) -> ok; %qualcosa per ritornare ok?
 % contacts(PID, [{FirstPid, _}|OtherVistiors]) ->  %HO TOLTO I REF
 contacts(PID, [FirstPid|OtherVistiors]) ->  %HO TOLTO I REF
     FirstPid ! {contact, PID},
@@ -16,12 +16,17 @@ place(Visitors) ->
     receive
         {begin_visit, PID_VISITOR, REF} ->
             %io:format("è iniziata la vista di ~p in ~p con ref ~p ~n", [PID_VISITOR, self(), REF]),
-            P = rand:uniform(4),
-            case P of
-                1 -> contacts(PID_VISITOR, Visitors);
+            case util:probability(10) of
+                true ->
+                    io:format("il luogo ~p sta morendo~n", [self()]),
+                    exit(debug);
+                false -> ok
+            end,
+            case util:probability(4) of
+                true -> contacts(PID_VISITOR, Visitors);
                 %negli altri casi non dobbiamo fare nulla
                 %dobbiamo fare il caso default _ ?
-                _ -> ok
+                false -> ok
             end,
             % place([{PID_VISITOR, REF}|Visitors]);
             place([PID_VISITOR|Visitors]);
@@ -31,26 +36,13 @@ place(Visitors) ->
             %place(Visitors -- [{PID_VISITOR, REF}]);
             place(Visitors -- [PID_VISITOR]);
 
-        {death_of_user, PID_USER} -> place(Visitors -- [PID_USER])
+        {death_of_user, PID_USER} -> place(Visitors -- [PID_USER]) % TODO: vedere di accorgersi della morte di un utente durante la visita senza di questo
 
     end.
 
 place_init() ->
-    %si linka al server
-    %link(server),
     %comunica al server la propria esistenza
-    global:send(server, {new_place, self()}),
     Pid_Server=global:whereis_name(server),
     link(Pid_Server),
-
-    %Morte del luoghi
-    % P = rand:uniform(2),
-    % case P of
-    %    1 -> receive after 100 ->
-    %            io:format("I (worker ~p) will die now ...~n", [self()]),
-    %            exit(no_activity)
-    %        end;
-    %    _ -> ok
-    % end,
-
-     place([]).
+    Pid_Server ! {new_place, self()},
+    place([]).

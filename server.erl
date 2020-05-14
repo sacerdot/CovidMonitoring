@@ -8,13 +8,13 @@ server(Places) ->
     receive
         {new_place, Pid_Place} ->
             io:format("New Place ~p~n",[Pid_Place]),
-            %monitor(process,Pid_Place),
+            monitor(process,Pid_Place),
             %Pid_Place ! {okay},                  %no recive in places
             server([Pid_Place|Places]);
 
-        % {'DOWN', _ , process, Pid, Reason } -> %{'DOWN', Reference, process, Pid, Reason} ->
-        %     io:format("~p e' morto e questo è il messaggio di monitor : ~p ~n", [Pid, Reason]),
-        %     server(Places -- [Pid]);
+        {'DOWN', _ , process, Pid, Reason } -> %{'DOWN', Reference, process, Pid, Reason} ->
+            io:format("~p e' morto e questo è il messaggio di monitor : ~p ~n", [Pid, Reason]),
+            server(Places -- [Pid]);
 
         {'EXIT',Pid, Reason} -> %vedere se bisogna trrattare morete di utenti in modo diverso
             io:format("Process received exit ~p ~p.~n",[Pid, Reason]),

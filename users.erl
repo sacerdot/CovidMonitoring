@@ -9,8 +9,7 @@ users_init() ->
 	io:format("New User ~p~n",[self()]),
 	link(global:whereis_name(server)),
     PidPlaces = spawn_link(?MODULE, fget_places, [3, self(), []]),
-    
-   PidTest = spawn_link(?MODULE, test_virus, [self()]),
+    PidTest = spawn_link(?MODULE, test_virus, [self()]),
 %  	user([], [], PidVisit, PidTest, PidPlaces).
  	user([], [], 0, PidTest, PidPlaces).
 
@@ -20,6 +19,7 @@ users_init() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 user(UPlaces, UContacts, PidVisit, PidTest, PidPlaces) ->
+  io:format("Io ~p ho questi luoghi: ~p~n", [self(), UPlaces]),
   io:format("Io ~p sono in contatto con : ~p~n", [self(), UContacts]),
   receive
     {contact, Pid} ->
@@ -36,20 +36,20 @@ user(UPlaces, UContacts, PidVisit, PidTest, PidPlaces) ->
     {places, Places} ->
 		PidPlaces ! {places_list, UPlaces, Places},
 		user(UPlaces, UContacts, PidVisit, PidTest, PidPlaces)
-	;	
+	;
 	%Non riesco a capite perché come era fatto prima fosse bloccante e inchiodasse gli user
 	%così è brutto perché abbiamo rimesso in user messaggi non del prof
-	{place_usr, Places} ->  
+	{place_usr, Places} ->
 		io:format("Io ~p ho i seguenti luoghi ~p~n", [self(), Places]),
 		case PidVisit of
-			0 -> 
+			0 ->
 				PidNewVisit = spawn_link(?MODULE, visit, [self(), Places]),
 				user(Places, UContacts, PidNewVisit, PidTest, PidPlaces);
 			_ ->
 				PidVisit ! {new_places, Places},
 				user(Places, UContacts, PidVisit, PidTest, PidPlaces)
 		end
-		
+
     ;
     {test_result, RESULT} ->
         PidTest ! {test_result_u, RESULT},
@@ -65,10 +65,10 @@ user(UPlaces, UContacts, PidVisit, PidTest, PidPlaces) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 test_virus(Pid) ->
-	sleep(30000),
-	case util:probability(4) of 
+	util:sleep(30000),
+	case util:probability(4) of
 		false -> test_virus(Pid);
-		true -> 
+		true ->
 			global:send(hospital, {test_me, Pid}),
 			receive
 				{test_result_u, RESULT} ->
@@ -88,7 +88,7 @@ visit(Pid, Places) ->
 	MyPid = self(),
 	PidVisit = spawn_link(fun() -> process_flag(trap_exit, true), visit_place(Pid, Places, MyPid) end),
 	receive
-		{new_places, NewPlaces} -> 
+		{new_places, NewPlaces} ->
 			PidVisit ! {exit_visit},
 			visit(Pid, NewPlaces);
 		{end_visit, _} ->
@@ -97,12 +97,12 @@ visit(Pid, Places) ->
 
 visit_place(_, [], _) -> ok;
 visit_place(Pid, UPlaces, PidVisit) -> %... oppure qui creo un altro attore che mi aspetta l'aggiornamento dei luoghi se necessario
-	sleep(util:rand_in_range(3000,5000)),
+	util:sleep(util:rand_in_range(3000,5000)),
     Ref = make_ref(),
     Place = lists:nth(rand:uniform(length(UPlaces)), UPlaces),
     Place ! {begin_visit, Pid, Ref},
-    receive 
-		{'EXIT',Pid, Reason} -> 
+    receive
+		{'EXIT',Pid, Reason} ->
 			Place ! {end_visit, Pid, Ref},
 			exit(Reason);
 		{exit_visit} ->
@@ -118,15 +118,16 @@ visit_place(Pid, UPlaces, PidVisit) -> %... oppure qui creo un altro attore che 
 %%capire come chiedere ogni 10 secondi se tutti i luoghi sono vivi
 fget_places(N, Pid, PidPlace) ->
 	case N of
-		0 -> ok;		
+		0 -> ok;
 		_ -> global:send(server, {get_places, Pid})
-	end,	
+	end,
 	receive
 		{places_list, UPlaces, Places} ->
 			ListPlaces = get_list(Places -- UPlaces, UPlaces, N)++UPlaces--PidPlace,
 			Pid ! {place_usr, ListPlaces},
 			fget_places(0, Pid, []);
 		{'DOWN', _ , process, PidPlace, _ } ->
+			io:format("Morto luogo ~p collegato a utente ~p~n", [PidPlace, Pid]),
 			fget_places(1, Pid, [PidPlace])
 	end.
 
@@ -143,4 +144,4 @@ get_list(Places, List, N) ->
    monitor(process,X),
    get_list(Places -- [X], [X|List], N - 1).   %controllare che non viene tolto dal server
 
-sleep(N) -> receive after N -> ok end.
+% sleep(N) -> receive after N -> ok end.

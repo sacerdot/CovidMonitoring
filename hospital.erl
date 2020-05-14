@@ -15,4 +15,6 @@ hospital() ->
 hospital_init() ->
     % ci dobbiamo linkare al server?
     HospitalPid = spawn(?MODULE, hospital, []),
+    ServerPid = global:whereis_name(server),
+    link(ServerPid),
     global:register_name(hospital,HospitalPid).
