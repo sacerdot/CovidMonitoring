@@ -1,5 +1,5 @@
--module(luogo).
--export([main/0, init_luogo/0, visit_place/1, sleep/1, user/1, set_subtract/2]).
+-module(luoghi).
+-export([start/0, luogo/0, init_luogo/0, visit_place/1, sleep/1, set_subtract/2]).
 -import(server, [init/1]).
 
 sleep(T) ->
@@ -9,11 +9,12 @@ set_subtract(L1, L2) ->
   lists:filter(fun(X) -> not lists:member(X, L2) end, L1).
 
 init_luogo() ->
-  io:format("Luogo pid: ~p~n", [self()]),
   PID = global:whereis_name(server),
   case PID of
     undefined -> exit(server_not_registered);
-    P -> link(P)
+    P -> 
+      P ! {ciao,da,luogo,self()},
+      link(P)
   end,
   process_flag(trap_exit, true),
   global:send(server, {new_place, self()}),
@@ -44,7 +45,7 @@ visit_place(L) ->
 contact_tracing(_, []) -> ok;
 contact_tracing(NewUser, [PidOldUser | T]) ->
   %io:format("[Luogo] Lancio del dado per il contatto del nuovo utente ~p ~n", [NewUser]),
-  case rand:uniform(1) of
+  case rand:uniform(4) of
     1 -> NewUser ! {contact, PidOldUser};
     %io:format("[Luogo] Contatto avvenuto tra user nuovo ~p e ~p ~n", [NewUser, PidOldUser]);
     _ -> ok
@@ -60,25 +61,11 @@ check_for_closing() ->
     _ -> ok
   end.
 
-user(Luogo) ->
-  R = make_ref(),
-  Luogo ! {begin_visit, self(), R},
-  sleep(rand:uniform(5000)),
-  Luogo ! {end_visit, self(), R}.
+start() ->
+  [ spawn(fun luogo/0) || _ <- lists:seq(1,10) ].
 
-%pretty_print(Msg) -> 
-%    io:format("[~p] ~p ~n", [?MODULE, Msg]).
-
-main() ->
-  L = [],
-  S = spawn(server, init, [L]),
-  global:register_name(server, S),
-  Luogo = spawn(?MODULE, init_luogo, []),
-  U1 = spawn(?MODULE, user, [Luogo]),
-  io:format("[Luogo] Pid utente1 ~p ~n", [U1]),
-  U2 = spawn(?MODULE, user, [Luogo]),
-  io:format("[Luogo] Pid utente2 ~p ~n", [U2]),
-  U3 = spawn(?MODULE, user, [Luogo]),
-  io:format("[Luogo] Pid utente3 ~p ~n", [U3]).
-
+luogo() ->
+  io:format("Io sono il luogo ~p~n",[self()]),
+  %Server = global:whereis_name(server),
+  init_luogo().
 

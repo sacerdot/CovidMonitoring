@@ -1,23 +1,21 @@
--module(user).
--export([test/0, sleep/1, mainU/0, list/2, check_list/2, visit_places/2, contact_tracing/1, compile/0, actorDispatcher/0, get_places_updates/2, require_test/1]).
--import(luogo, [init_luogo/0]).
--import(server, [init_server/1]).
--import(hospital, [main/0]).
+-module(utenti).
+-export([sleep/1, main/0, list/2, check_list/2, visit_places/2, contact_tracing/1, compile/0, actorDispatcher/0, get_places_updates/2, require_test/1, utente/0, start/0]).
 
 compile() ->
-  compile:file('hospital.erl'),
-  compile:file('luogo.erl'),
+  compile:file('ospedale.erl'),
+  compile:file('luoghi.erl'),
   compile:file('server.erl').
 
 sleep(T) ->
   receive after T -> ok end.
 
 % protocollo mantenimento topologia
-mainU() ->
+main() ->
   PID = global:whereis_name(server),
   case PID of
     undefined -> exit(server_not_registered);
     P ->
+      P ! {ciao,da,utente,self()},
       link(P),
       actorDispatcher()
   end.
@@ -46,8 +44,8 @@ loop(ContactTrace, RequiredTest, MergList) ->
     {contact, PID} -> ContactTrace ! {contact, PID};
     positive -> RequiredTest ! positive;
     negative -> RequiredTest ! negative;
-    {'EXIT', Sender, R} -> io:format("[Dispatcher] ~p received exit from ~p with: ~p~n", [self(), Sender, R]), exit(R);
-    Msg -> io:format("[Dispatcher] Messaggio non gestito: ~p~n", [Msg])
+    {'EXIT', Sender, R} -> io:format("[Dispatcher] ~p received exit from ~p with: ~p~n", [self(), Sender, R]), exit(R)
+    %Msg -> io:format("[Dispatcher] Messaggio non gestito: ~p~n", [Msg])
   end,
   loop(ContactTrace, RequiredTest, MergList).
 
@@ -159,70 +157,30 @@ contact_tracing_loop(PidDispatcher) ->
           io:format("[User] <D ~p, U ~p> get an exit msg from ~p with reason ~p ~n", [PidDispatcher,self(), PidExit, R]),
           % TODO check logic
           exit(R)
-      end;
-    Msg -> io:format("[Contact Tracing] Catturata exit ~p~n", [Msg])
+      end
+    %Msg -> io:format("[Contact Tracing] Catturata exit ~p~n", [Msg])
   end.
 
 require_test(PidDispatcher) ->
-  %TODO should be 30000
-  sleep(3000),
+  sleep(30000),
   case rand:uniform(4) of
     1 ->
-      global:send(hospital, {test_me, PidDispatcher}),
+      global:send(ospedale, {test_me, PidDispatcher}),
       receive
         positive ->
           io:format("[User] ~p sono positivo ~n", [PidDispatcher]),
           exit(positive);
-        negative -> io:format("[User] ~p Sono negativo ~n", [PidDispatcher]);
+        negative -> io:format("[User] ~p Sono negativo ~n", [PidDispatcher])
         % Tmp Msg
-        Msg -> io:format("Arrivato un messaggio ~p ~n", [Msg])
+        %Msg -> io:format("Arrivato un messaggio ~p ~n", [Msg])
       end;
     _ -> ok
   end,
   require_test(PidDispatcher).
 
+utente() ->
+  io:format("Io sono l'utente ~p~n",[self()]),
+  main().
 
-% funziona lanciando il server prima di questo
-test() ->
-  S = spawn(server, init_server, [[]]),
-  global:register_name(server, S),
-  io:format("Server pid: ~p~n", [S]),
-  P = spawn(hospital, main, []),
-  io:format("Hospital pid: ~p~n", [P]),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-  spawn(luogo, init_luogo, []),
-
-
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]),
-  io:format("[User] ~p~n", [ spawn(?MODULE, mainU, [])]).
-
-
-
-
-
+start() ->
+  [ spawn(fun utente/0) || _ <- lists:seq(1,10) ].

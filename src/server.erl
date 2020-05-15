@@ -1,5 +1,5 @@
 -module(server).
--export([main/0, init_server/1, sleep/1]).
+-export([start/0, init_server/1, sleep/1]).
 
 sleep(T) ->
   receive after T -> ok end.
@@ -25,36 +25,18 @@ loop(L) ->
       PID ! {places, L}, % L = lista dei Pid dei luoghi attivi
       loop(L);
     {'EXIT', Sender, R} ->
-      io:format("[Server] ~p received exit from ~p with: ~p~n", [self(), Sender, R]),
+      %io:format("[Server] ~p received exit from ~p with: ~p~n", [self(), Sender, R]),
+      loop(L);
+    Msg -> 
+      io:format("Messaggio ricevuto~p~n",[Msg]),
       loop(L)
   end.
-
 
 init_server(L) ->
   process_flag(trap_exit, true),
   loop(L).
 
-% test
-% luogo() ->
-%   global:send(server, {new_place, self()}) ,
-%   sleep(rand:uniform(5000)),
-%   exit (ciccio).
-
-% luogo2() ->
-%   global:send(server, {new_place, self()}) ,
-%   global:send(server, {new_place, self()}) ,
-%   sleep(rand:uniform(5000)),
-%   exit (ciccio).
-
-main() ->
-  Init = spawn(?MODULE, init, [[]]),
-  global:register_name(server, Init).
-  %spawn(?MODULE, luogo, []),
-  %L2 = spawn(?MODULE, luogo2, []),
-  %L3 = spawn(?MODULE, luogo, []),
-  %spawn(?MODULE, luogo2, []),
-  %spawn(?MODULE, luogo, []),
-  %sleep(1000),
-  %exit(L2,kill),
-  %exit(L3, kill).
-
+start() ->
+  global:register_name(server, self()),
+  io:format("Io sono il server~n",[]),
+  init_server([]).
