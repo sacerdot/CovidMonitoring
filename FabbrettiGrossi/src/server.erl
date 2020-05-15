@@ -6,7 +6,9 @@ update_places(PIDLIST) ->
   receive
     % INIT PROTOCOL/1: keeps and monitors a place list
     {new_place, PID_LUOGO} ->
-      % monitor it (or set trap flag?! The place process is linked... link are bidirectional. WARNING)
+      % set trap flag! The places and users processes are linked... link are bidirectional. WARNING)
+      process_flag(trap_exit, true)
+      % monitor it
       erlang:monitor(process, PID_LUOGO),
       % add to the place list
       update_places([PID_LUOGO | PIDLIST]);
