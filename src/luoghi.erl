@@ -1,36 +1,30 @@
 -module(luoghi).
--export([start/0, luogo/0, init_luogo/0, visit_place/1, sleep/1, set_subtract/2]).
--import(server, [init/1]).
-
-sleep(T) ->
-  receive after T -> ok end.
-
-set_subtract(L1, L2) ->
-  lists:filter(fun(X) -> not lists:member(X, L2) end, L1).
+-export([start/0, luogo/0, init_luogo/0, visit_place/1]).
+-import(utils, [sleep/1, set_subtract/2]).
 
 init_luogo() ->
   PID = global:whereis_name(server),
   case PID of
-    undefined -> exit(server_not_registered);
+    undefined -> 
+      exit(server_not_registered);
     P -> 
       P ! {ciao,da,luogo,self()},
-      link(P)
-  end,
-  process_flag(trap_exit, true),
-  global:send(server, {new_place, self()}),
-  visit_place([]).
+      link(P),
+      process_flag(trap_exit, true),
+      P ! {new_place, self()},
+      visit_place([])
+  end.
 
 visit_place(L) ->
   %io:format("[Luogo] ~p Utenti nel luogo: ~p ~n", [self(), L]),
   receive
     {begin_visit, PID, Ref} ->
       MRef = monitor(process, PID),
-      %% PidOldUser can die
+      % PidOldUser can die
       contact_tracing(PID, [PidOldUser || {PidOldUser, _, _} <- L]),
       check_for_closing(),
       visit_place([{PID, Ref, MRef} | L]);
     {end_visit, PID, Ref} ->
-      %visit_place(lists:delete({PID, Ref}, L))
       [MRef] = [MR || {Pid, _, MR} <- L, Pid =:= PID],
       demonitor(MRef),
       visit_place(set_subtract(L, [{PID, Ref, MRef}]));
@@ -54,18 +48,17 @@ contact_tracing(NewUser, [PidOldUser | T]) ->
   contact_tracing(NewUser, T).
 
 check_for_closing() ->
-  case rand:uniform(10) of
-    1 ->
-%%      io:format("[Luogo] ~p died with 10% ~n", [self()]),
-      exit(normal);
+  % TODO restore rand:uniform(10)
+  case rand:uniform(100) of
+    1 -> exit(normal);
     _ -> ok
   end.
 
 start() ->
-  [ spawn(fun luogo/0) || _ <- lists:seq(1,10) ].
+  % TODO rimettere lists:seq(1,10)
+  [ spawn(fun luogo/0) || _ <- lists:seq(1,5) ].
 
 luogo() ->
   io:format("Io sono il luogo ~p~n",[self()]),
-  %Server = global:whereis_name(server),
   init_luogo().
 

@@ -1,15 +1,7 @@
 -module(utenti).
--export([sleep/1, main/0, list/2, check_list/2, visit_places/2, contact_tracing/1, compile/0, actorDispatcher/0, get_places_updates/2, require_test/1, utente/0, start/0]).
+-export([main/0, list/2, check_list/2, visit_places/2, contact_tracing/1, actorDispatcher/0, get_places_updates/2, require_test/1, utente/0, start/0]).
+-import(utils, [sleep/1, set_subtract/2, take_random/2]).
 
-compile() ->
-  compile:file('ospedale.erl'),
-  compile:file('luoghi.erl'),
-  compile:file('server.erl').
-
-sleep(T) ->
-  receive after T -> ok end.
-
-% protocollo mantenimento topologia
 main() ->
   PID = global:whereis_name(server),
   case PID of
@@ -44,7 +36,9 @@ loop(ContactTrace, RequiredTest, MergList) ->
     {contact, PID} -> ContactTrace ! {contact, PID};
     positive -> RequiredTest ! positive;
     negative -> RequiredTest ! negative;
-    {'EXIT', Sender, R} -> io:format("[Dispatcher] ~p received exit from ~p with: ~p~n", [self(), Sender, R]), exit(R)
+    {'EXIT', Sender, R} -> 
+    io:format("[Dispatcher] ~p received exit from ~p with: ~p~n", [self(), Sender, R]), 
+    exit(R)
     %Msg -> io:format("[Dispatcher] Messaggio non gestito: ~p~n", [Msg])
   end,
   loop(ContactTrace, RequiredTest, MergList).
@@ -67,18 +61,6 @@ list(PidDispatcher, L) ->
       global:send(server, {get_places, PidDispatcher}),
       list(PidDispatcher, L)
   end.
-
-%% TODO add to utils
-%% L1 -- L2
-set_subtract(L1, L2) ->
-  lists:filter(fun(X) -> not lists:member(X, L2) end, L1).
-
-take_random([], _) -> [];
-take_random(_, 0) -> [];
-take_random(L, N) ->
-  E = lists:nth(rand:uniform(length(L)), L),
-  R = take_random(set_subtract(L, [E]), N - 1),
-  [E | R].
 
 get_places_updates(PidDispatcher, ActorList) ->
   receive
@@ -148,31 +130,34 @@ contact_tracing_loop(PidDispatcher) ->
     {'EXIT', PidExit, R} -> % TODO rewrite
       case R of
         quarantine ->
-          io:format("[User] ~p enter quarantine from ~p ~n", [PidDispatcher, PidExit]),
+          io:format("[User] ~p entro in quaratena ~n", [PidDispatcher]),
           exit(quarantine);
         positive ->
-          io:format("[User] ~p enter quarantine from ~p ~n", [PidDispatcher, PidExit]),
+          io:format("[User] ~p entro in quaratena ~n", [PidDispatcher]),
           exit(quarantine);
         _ ->
           io:format("[User] <D ~p, U ~p> get an exit msg from ~p with reason ~p ~n", [PidDispatcher,self(), PidExit, R]),
           % TODO check logic
           exit(R)
       end
-    %Msg -> io:format("[Contact Tracing] Catturata exit ~p~n", [Msg])
   end.
 
 require_test(PidDispatcher) ->
   sleep(30000),
   case rand:uniform(4) of
     1 ->
-      global:send(ospedale, {test_me, PidDispatcher}),
+      PID = global:whereis_name(ospedale),
+      case PID of 
+        undefined -> 
+          exit(ospedale_not_registered);
+        P -> 
+          P ! {test_me, PidDispatcher}
+      end,
       receive
         positive ->
           io:format("[User] ~p sono positivo ~n", [PidDispatcher]),
           exit(positive);
         negative -> io:format("[User] ~p Sono negativo ~n", [PidDispatcher])
-        % Tmp Msg
-        %Msg -> io:format("Arrivato un messaggio ~p ~n", [Msg])
       end;
     _ -> ok
   end,
