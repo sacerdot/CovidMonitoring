@@ -10,9 +10,9 @@
 -author("Federico Bertani").
 
 %% API
--export([run/0]).
+-export([start/0]).
 
-run() ->
+start() ->
   io:format("hospital started pid=~p ~n",[self()]),
   global:register_name(hospital,self()),
   io:format("hospital registered~n"),
@@ -27,5 +27,5 @@ run() ->
         false ->
           PID ! negative
       end,
-      run()
+      start()
   end.
