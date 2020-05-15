@@ -7,18 +7,17 @@
 		places = []}).
 
 place_manager(Manager) ->
-    Manager ! {update_status, self()},
-    receive {status, Status} ->
-	    Places = Status#status.places,
-	    case length(Places) < 3 of
-		false -> Manager ! {status_updated, Status};
-		true -> server ! {get_places, self()},
-			AllPlaces = receive {places, Pidlist} -> Pidlist end,
-			NewPlaces = erlang:subtract(AllPlaces, Places),
-			PlacesUpdated = sample(NewPlaces, 3 - length(Places)),
-			NewStatus = Status#status{places = PlacesUpdated},
-			Manager ! {status_updated, NewStatus}
-	    end
+    Manager ! {ask_status, self()},
+    Status = receive {status, RStatus} -> RStatus end,
+    
+    Places = Status#status.places,
+    case length(Places) < 3 of
+	false -> ok;
+	true -> server ! {get_places, self()},
+		AllPlaces = receive {places, Pidlist} -> Pidlist end,
+		NewPlaces = erlang:subtract(AllPlaces, Places),
+		PlacesUpdated = sample(NewPlaces, 3 - length(Places)),
+		update_status(Manager, {places, PlacesUpdated})
     end,			
     sleep(10),
     place_manager(Manager).
@@ -47,7 +46,8 @@ do_test(Manager) ->
 
 perform_visit(Manager) ->
     Manager ! {ask_places, self()},
-    Places = receive {status, Status} -> Status#status.places end,
+    Status = receive {status, RStatus} -> RStatus end,
+    Places = Status#status.places,
     case length(Places) > 0 of
 	false ->
 	    io:format("Non ci sono posti da visitare, dormo.~n");
@@ -55,13 +55,31 @@ perform_visit(Manager) ->
 	    Place = sample(Places, 1),
 	    Ref = erlang:make_ref(),
 	    Place ! {begin_visit, self(), Ref},
+
+	    update_status(Manager, {update_visit, self(), Ref, 1}), 
 	    Visit_time = rand:uniform(5) + 5,
 	    spawn(?MODULE, fun (Pid) -> receive after Visit_time -> Pid ! done_visit end end, [self()]),
 	    receive_contact(),
+	    update_status(Manager, {update_visit, -1, -1, -1}), 
 	    Place ! {end_visit, self(), Ref}
     end,
     sleep_random(3,5),
     perform_visit(Manager).
+
+update_status(Manager, Update) ->
+    
+    Manager ! {update_status, self()},
+    Status = receive {status, RStatus} -> RStatus end,
+    NewStatus = case Update of
+		   {update_places, Places} -> 
+		       Status#status{places = Places};
+		   {update_visit, Pid, Ref, Visiting} ->
+		       Status#status{visiting = Visiting, visitor_pid = Pid, visiting_ref = Ref};
+		    Other -> 
+			io:format("Tupla non prevista: ~p~n", [Other]),
+			Status     
+	       end,
+    Manager ! {status_updated, NewStatus}.
 
 receive_contact() ->
     receive 
@@ -96,8 +114,6 @@ start() ->
        	    %erlang:spawn_link(?MODULE, place_manager, [self()]),
             %erlang:spawn_link(?MODULE, perform_visit, [self()]),
 	    %erlang:link(server),
-
-
 
 
 %---------------- UTILS ----------------%
