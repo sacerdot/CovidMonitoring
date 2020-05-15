@@ -55,11 +55,18 @@ perform_visit(Manager) ->
 	    Place = sample(Places, 1),
 	    Ref = erlang:make_ref(),
 	    Place ! {begin_visit, self(), Ref},
-	    sleep_random(5,10),
+	    receive_contact(),
 	    Place ! {end_visit, self(), Ref}
     end,
     sleep_random(3,5).
 
+receive_contact() ->
+    Visit_time = rand:uniform(5) + 5,
+    receive 
+	{contact, Pid} -> link(Pid)
+    after
+	Visit_time -> ok
+    end.		        
 
 loop(Status) ->
     receive
@@ -70,14 +77,17 @@ loop(Status) ->
 	    end;
 	{ask_status, Pid} -> 
 	    Pid ! {status, Status},
-	    loop(Status)
+	    loop(Status);
+	{'EXIT', _, quarantena} ->
+	    io:format("Entro in quarantena~n"),
+	    exit(quarantena)
     end.
 
 
 start() ->
     Status = #status{ visiting = -1,
 		      places = []},
-    
+    process_flag(trap_exit, true),
     erlang:spawn_link(?MODULE, do_test, [self()]),
     loop(Status).
        	    %erlang:spawn_link(?MODULE, place_manager, [self()]),
