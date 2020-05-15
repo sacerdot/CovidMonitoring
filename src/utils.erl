@@ -1,5 +1,5 @@
 -module(utils).
--export([sleep/1, set_subtract/2, take_random/2]).
+-export([sleep/1, set_subtract/2, take_random/2, make_probability/1]).
 
 sleep(T) ->
   receive after T -> ok end.
@@ -14,3 +14,11 @@ take_random(L, N) ->
   E = lists:nth(rand:uniform(length(L)), L),
   R = take_random(set_subtract(L, [E]), N - 1),
   [E | R].
+
+make_probability(X) ->
+  fun () ->
+    case (rand:uniform(100) =< X) of
+      true -> 1;
+      false -> 0
+    end
+  end.
