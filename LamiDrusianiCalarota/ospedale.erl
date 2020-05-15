@@ -5,16 +5,12 @@ test() ->
 	receive
 		{test_me,Pid} -> 
 			case rand:uniform(4) of
-				1 -> Pid ! positive;
-				_ -> Pid ! negative
+				 1 -> Pid ! positive, test();
+				 _ -> Pid ! negative, test()
 			end
-	end,
-	test().
+	end.
 	
-ospedale() ->
+start() ->
       	global:register_name(hospital,self()),
-        Server = global:whereis_name(server),
-	%link al server
 	test().
 
-start() -> vedereComeFare.
