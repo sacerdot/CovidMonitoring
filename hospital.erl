@@ -6,7 +6,7 @@ hospital() ->
     receive
         {test_me, Pid_User} ->
             case util:probability(4) of
-                true -> Pid_User ! {test_result, positive};
+                true -> Pid_User ! {test_result, positive}; %forse bisogna fare solo positive o negative
                 false -> Pid_User ! {test_result, negative}
             end
     end,

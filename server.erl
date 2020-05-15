@@ -1,8 +1,7 @@
 -module(server).
 -export([server_init/0, server/1]).
 
-death_of_user([], _) -> ok;
-death_of_user([H|T], PidU) -> H ! {death_of_user, PidU}, death_of_user(T, PidU).
+
 
 server(Places) ->
     receive
@@ -12,27 +11,24 @@ server(Places) ->
             %Pid_Place ! {okay},                  %no recive in places
             server([Pid_Place|Places]);
 
+        {get_places, Pid_User} ->
+            Pid_User ! {places, Places},
+            server(Places);
+
         {'DOWN', _ , process, Pid, Reason } -> %{'DOWN', Reference, process, Pid, Reason} ->
             io:format("~p e' morto e questo è il messaggio di monitor : ~p ~n", [Pid, Reason]),
             server(Places -- [Pid]);
 
-        {'EXIT',Pid, Reason} -> %vedere se bisogna trrattare morete di utenti in modo diverso
-            io:format("Process received exit ~p ~p.~n",[Pid, Reason]),
+        {'EXIT',Pid, Reason} -> %il trattino sarebbe Pid
+            io:format("EXIT in server Pid ~p Reason ~p~n", [Pid, Reason]),
             case Reason of
-                positive -> death_of_user(Places, Pid);
-                _ -> ok
+                positive -> ok;
+                quarantena -> ok;
+                normal -> ok;
+                _ -> exit(Reason) %nel caso in cui qualuno a cui siamo linkati termini per un'altra ragione, anche noi terminiamo con la stessa reason
             end,
-            server(Places -- [Pid]);
-
-        {get_places, Pid_User} ->
-            Pid_User ! {places, Places},
+            io:format("Superato~n",[]),
             server(Places)
-
-        % {new_usr, Pid_User} ->
-        %       io:format("New User ~p~n",[Pid_User]),
-        %       %monitor(process,Pid_User),
-        %       %Pid_User ! {okay},             %no rec in users
-        %       server(Places)
     end.
 
 server_init() ->
