@@ -25,8 +25,8 @@ visits(USER_LIST) ->
       io:format("Exit of ~p ~n", [PID]),
       case lists:member({PID, _}, USER_LIST) of
           true ->
-            io:format("True visit ~p ~n", [[{P, R} || {P, R} <- USER_LIST, P /= PID]]),
             % erase all PID occurrences in user list
+            io:format("True visit ~p ~n", [[{P, R} || {P, R} <- USER_LIST, P /= PID]]),
             visits([{P, R} || {P, R} <- USER_LIST, P /= PID]);
           false -> ok
       end;
