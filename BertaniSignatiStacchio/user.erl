@@ -9,7 +9,7 @@
 -module(user).
 -author("Lorenzo_Stacchio").
 %% API
--export([start/0, start_loop/2, places_manager/1, get_places/3, test_manager/0, server/1, simple_place/1, simple_hospital/0, visit_manager/2]).
+-export([start/0, start_loop/2, places_manager/1, get_places/3, test_manager/0, server/1, simple_place/1, visit_manager/2]).
 -define(TIMEOUT_PLACE_MANAGER, 10000).
 -define(TIMEOUT_TEST_MANAGER, 50000).
 % number of places a user keep track
@@ -26,7 +26,7 @@ flush() ->
 sleep(N) -> receive after N -> ok end.
 
 
-%-----------SERVER, PLACES,HOSPITAL SIMULATED-----------
+%-----------SERVER, PLACES SIMULATED-----------
 server(L) ->
   process_flag(trap_exit, true),
   % link server to all the places in its list
@@ -61,18 +61,6 @@ simple_place(N) ->
           exit(luogo_morto);
         false -> simple_place(0)
       end
-  end.
-
-simple_hospital() ->
-  io:format("Hospital PID~p~n", [self()]),
-  receive
-    {test_me, PID} ->
-      P = rand:uniform(4),
-      case (P == 1) of
-        true -> PID ! {positive};
-        false -> PID ! {negative}
-      end,
-      simple_hospital()
   end.
 
 %----------------------USER----------------------
@@ -227,13 +215,10 @@ start() ->
   PLACES_MANAGER = spawn_link(?MODULE, places_manager, [[]]),
   register(places_manager, PLACES_MANAGER),
   io:format("PLACES MANAGER SPAWNED~p~n", [PLACES_MANAGER]),
-  HOSPITAL = spawn_link(?MODULE, simple_hospital, []),
-  register(hospital, HOSPITAL),
-  io:format("HOSPITAL SPAWNED~p~n", [HOSPITAL]),
   VISIT_MANAGER = spawn_link(?MODULE, visit_manager, [[], []]),
   register(visit_manager, VISIT_MANAGER),
   io:format("VISITOR MANAGER SPAWNED~p~n", [VISIT_MANAGER]),
   TEST_MANAGER = spawn_link(?MODULE, test_manager, []),
   register(test_manager, TEST_MANAGER),
   io:format("TEST MANAGER SPAWNED~p~n", [TEST_MANAGER]),
-  spawn(?MODULE, start_loop, [[SERVER,PLACES_MANAGER,HOSPITAL,VISIT_MANAGER,TEST_MANAGER],SERVER]).
+  spawn(?MODULE, start_loop, [[SERVER,PLACES_MANAGER,VISIT_MANAGER,TEST_MANAGER],SERVER]).
