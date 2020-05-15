@@ -55,17 +55,20 @@ perform_visit(Manager) ->
 	    Place = sample(Places, 1),
 	    Ref = erlang:make_ref(),
 	    Place ! {begin_visit, self(), Ref},
+	    Visit_time = rand:uniform(5) + 5,
+	    spawn(?MODULE, fun (Pid) -> receive after Visit_time -> Pid ! done_visit end end, [self()]),
 	    receive_contact(),
 	    Place ! {end_visit, self(), Ref}
     end,
-    sleep_random(3,5).
+    sleep_random(3,5),
+    perform_visit(Manager).
 
 receive_contact() ->
-    Visit_time = rand:uniform(5) + 5,
     receive 
-	{contact, Pid} -> link(Pid)
-    after
-	Visit_time -> ok
+	{contact, Pid} -> 
+	    link(Pid),
+	    receive_contact();
+	done_visit -> ok
     end.		        
 
 loop(Status) ->
