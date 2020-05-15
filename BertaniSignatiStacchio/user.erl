@@ -82,10 +82,10 @@ simple_hospital() ->
 get_random_elements_from_list(ACTIVE_PLACES, N, LIST_USER) ->
   if length(LIST_USER) < N ->
     X = rand:uniform(length(ACTIVE_PLACES)),
-    case lists:member(lists:nth(X,ACTIVE_PLACES), LIST_USER) of
+    case lists:member(lists:nth(X, ACTIVE_PLACES), LIST_USER) of
       true -> get_random_elements_from_list(ACTIVE_PLACES, N, LIST_USER);
       false ->
-        get_random_elements_from_list(lists:delete(lists:nth(X,ACTIVE_PLACES),ACTIVE_PLACES),
+        get_random_elements_from_list(lists:delete(lists:nth(X, ACTIVE_PLACES), ACTIVE_PLACES),
           N, lists:append(LIST_USER, [lists:nth(X, ACTIVE_PLACES)]))
     end;
     true ->
@@ -111,7 +111,6 @@ get_places(N, LIST_TO_RETURN, PID) ->
   end.
 
 
-
 % responsibile to keeping up to {USER_PLACES_NUMBER} places
 places_manager(USER_PLACES_LIST) ->
   process_flag(trap_exit, true),
@@ -129,7 +128,8 @@ places_manager(USER_PLACES_LIST) ->
     {'EXIT', PID, Reason} -> % a place have died
       case PID == whereis(server) of % if the server dies
         true -> exit(kill); % kill the places_manager
-        false -> io:format("Post mortem PLACE MANAGER1 ~p,~p, ~n", [PID, Reason]), %otherwise it's a place that died
+        false -> %if false, the PID could only identify a Place because of the link made only to the Server and Places.
+          io:format("Post mortem PLACE MANAGER1 ~p,~p, ~n", [PID, Reason]), %otherwise it's a place that died
           % check that the user places list is not empty because it can be in a state where it has requested new places but
           % there are any available and the last one it had, has died
           case length(USER_PLACES_LIST) > 0 of
@@ -150,25 +150,34 @@ places_manager(USER_PLACES_LIST) ->
   end.
 
 %-----------Visit protocol-----------
-visit_manager(USER_PLACES,CONTACT_LIST) ->
+visit_manager(USER_PLACES, CONTACT_LIST) ->
   %TODO SOLVE BLOCKING RECEIVE
   process_flag(trap_exit, true),
-  %io:format("VISIT MANAGER init ~p~p~n", [L,self()]),
+  link(whereis(server)),
+  % io:format("VISIT MANAGER init ~p~p~n", [L,self()]),
   % Not blocking receive to get places updates (if any)
   receive
     {'EXIT', PID, Reason} ->
-      case Reason of
-        luogo_morto -> io:format("Post mortem in VISIT ~p,~p, ~n", [USER_PLACES, Reason]),
+      case lists:member(PID, USER_PLACES) of
+        true -> io:format("Post mortem in VISIT ~p,~p, ~n", [USER_PLACES, Reason]),
           flush(),
-          visit_manager(USER_PLACES--[PID],CONTACT_LIST);
-        quarantena -> io:format("~p:Lista contatti~n", [CONTACT_LIST]), io:format("~p: morto~n", [PID]),
-          io:format("~p: Entro in quarantena~n", [self()]), exit(quarantena)
+          visit_manager(USER_PLACES--[PID], CONTACT_LIST);
+        false -> %if false, the PID could only identify a Place or another user, because of the link made only to the Server and Places.
+          case lists:member(PID, CONTACT_LIST) of
+            true -> io:format("~p:Lista contatti~n", [CONTACT_LIST]), io:format("~p: morto~n", [PID]),
+              io:format("~p: Entro in quarantena~n", [self()]), exit(quarantena);
+            false ->
+              case PID == whereis(server) of
+                true -> exit(kill);
+                false -> ok
+              end
+          end
       end;
     {new_places, UL} ->
       io:format("VISIT MANAGER Update~p ~n", [UL]),
       [link(PID) || PID <- UL],
-      visit_manager(UL,CONTACT_LIST);
-    {contact, PID_TOUCH} -> link(PID_TOUCH), visit_manager(USER_PLACES,CONTACT_LIST++PID_TOUCH)
+      visit_manager(UL, CONTACT_LIST);
+    {contact, PID_TOUCH} -> link(PID_TOUCH), visit_manager(USER_PLACES, CONTACT_LIST ++ PID_TOUCH)
   after 0 ->
     ok
   end,
@@ -176,19 +185,10 @@ visit_manager(USER_PLACES,CONTACT_LIST) ->
     true ->
       %io:format("VISIT MANAGER TRUE before ~p ~n", [L]),
       receive
-        {'EXIT', PID2, Reason2} ->
-          case Reason2 of
-            luogo_morto -> io:format("Post mortem in VISIT ~p,~p, ~n", [USER_PLACES, Reason2]),
-              flush(),
-              visit_manager(USER_PLACES--[PID2],CONTACT_LIST);
-            quarantena -> io:format("~p:Lista contatti~n", [CONTACT_LIST]), io:format("~p: morto~n", [PID2]),
-              io:format("~p: Entro in quarantena~n", [self()]), exit(quarantena)
-          end;
         {new_places, UL2} ->
           io:format("VISIT MANAGER Update~p ~n", [UL2]),
           [link(PID) || PID <- UL2],
-          visit_manager(UL2,CONTACT_LIST);
-        {contact, PID2} -> link(PID2), visit_manager(USER_PLACES,CONTACT_LIST++PID2)
+          visit_manager(UL2, CONTACT_LIST)
       end;
     false ->
       %io:format("VISIT MANAGER FALSE ~p ~n", [L]),
@@ -199,7 +199,7 @@ visit_manager(USER_PLACES,CONTACT_LIST) ->
       P ! {begin_visit, self(), Ref},
       sleep(4 + rand:uniform(6)),
       P ! {end_visit, self(), Ref},
-      visit_manager(USER_PLACES,CONTACT_LIST)
+      visit_manager(USER_PLACES, CONTACT_LIST)
   end.
 
 %-----------Test protocol-----------
@@ -234,7 +234,7 @@ user() ->
   HOSPITAL = spawn_link(?MODULE, simple_hospital, []),
   register(hospital, HOSPITAL),
   io:format("HOSPITAL SPAWNED~p~n", [HOSPITAL]),
-  VISIT_MANAGER = spawn_link(?MODULE, visit_manager, [[],[]]),
+  VISIT_MANAGER = spawn_link(?MODULE, visit_manager, [[], []]),
   register(visit_manager, VISIT_MANAGER),
   io:format("VISITOR MANAGER SPAWNED~p~n", [VISIT_MANAGER]),
   TEST_MANAGER = spawn_link(?MODULE, test_manager, []),
