@@ -1,26 +1,39 @@
 -module(utenti).
--export([start/0, loop/1, do_test/1, perform_visit/1, place_manager/1, sleep/1, sleep_random/2, sample/2]).
+-export([start/0, loop/1, do_test/1, perform_visit/1, reminder/2, place_manager/2, place_observer/2, sleep/1, sleep_random/2, sample/2]).
 
 -record(status,{visiting = -1,
 		visitor_pid = -1,
 		visiting_ref = -1,
 		places = []}).
 
-place_manager(Manager) ->
+place_manager(Manager, Pid_observer) ->
     Manager ! {ask_status, self()},
     Status = receive {status, RStatus} -> RStatus end,
-    
     Places = Status#status.places,
+    io:format("Lista dei posti di ~p: ~p~n", [self(), Places]),
     case length(Places) < 3 of
 	false -> ok;
-	true -> server ! {get_places, self()},
-		AllPlaces = receive {places, Pidlist} -> Pidlist end,
-		NewPlaces = erlang:subtract(AllPlaces, Places),
-		PlacesUpdated = sample(NewPlaces, 3 - length(Places)),
-		update_status(Manager, {places, PlacesUpdated})
+	true -> 
+	    global:send(server, {get_places, self()}),
+	    AllPlaces = receive {places, Pidlist} -> Pidlist end,
+	    NewPlaces = erlang:subtract(AllPlaces, Places),
+	    PlacesUpdated = sample(3 - length(Places), NewPlaces),
+	    [ Pid_observer ! {start_monitor, Place_pid} || Place_pid <- PlacesUpdated],
+	    update_status(Manager, {update_places, PlacesUpdated})
     end,			
-    sleep(10),
-    place_manager(Manager).
+    sleep(2),
+    place_manager(Manager, Pid_observer).
+
+place_observer(Manager, Places) ->
+    receive
+	{start_monitor, NewPlace } ->
+	    monitor(process, NewPlace),
+	    place_observer(Manager, Places ++ [NewPlace]);    
+	{'DOWN', _, process, Pid, normal} ->
+	    NewPlaces = Places -- [Pid],
+	    update_status(Manager, {update_places, NewPlaces}),
+	    place_observer(Manager, NewPlaces)
+    end.
 
 
 do_test(Manager) ->
@@ -45,26 +58,34 @@ do_test(Manager) ->
     do_test(Manager).
 
 perform_visit(Manager) ->
-    Manager ! {ask_places, self()},
+    Manager ! {ask_status, self()},
     Status = receive {status, RStatus} -> RStatus end,
     Places = Status#status.places,
+
     case length(Places) > 0 of
 	false ->
 	    io:format("Non ci sono posti da visitare, dormo.~n");
 	true ->
-	    Place = sample(Places, 1),
+	    [Place | _] = sample(1, Places),
 	    Ref = erlang:make_ref(),
+	    io:format("Sto per iniziare una visita, sono ~p~n", [self()]),	   
+	    io:format("Place ~p~n", [Place]),
 	    Place ! {begin_visit, self(), Ref},
 
 	    update_status(Manager, {update_visit, self(), Ref, 1}), 
 	    Visit_time = rand:uniform(5) + 5,
-	    spawn(?MODULE, fun (Pid) -> receive after Visit_time -> Pid ! done_visit end end, [self()]),
+	    spawn(?MODULE, reminder, [self(), Visit_time]),
 	    receive_contact(),
 	    update_status(Manager, {update_visit, -1, -1, -1}), 
+	    io:format("Sto per concludere una visita, sono ~p~n", [self()]),
 	    Place ! {end_visit, self(), Ref}
     end,
     sleep_random(3,5),
     perform_visit(Manager).
+
+reminder(Pid, Visit_time) ->
+    receive after Visit_time*1000 -> Pid ! done_visit end.
+    
 
 update_status(Manager, Update) ->
     
@@ -105,16 +126,22 @@ loop(Status) ->
     end.
 
 
-start() ->
+utente() ->
+    io:format("Ciao io sono l'utente ~p~n", [self()]),
     Status = #status{ visiting = -1,
 		      places = []},
     process_flag(trap_exit, true),
-    erlang:spawn_link(?MODULE, do_test, [self()]),
+    %erlang:spawn_link(?MODULE, do_test, [self()]),
+    Pid_observer = erlang:spawn_link(?MODULE, place_observer, [self(), []]),
+    erlang:spawn_link(?MODULE, place_manager, [self(), Pid_observer]),
+    erlang:spawn_link(?MODULE, perform_visit, [self()]),
+    Server = global:whereis_name(server),
+    erlang:link(Server),
     loop(Status).
-       	    %erlang:spawn_link(?MODULE, place_manager, [self()]),
-            %erlang:spawn_link(?MODULE, perform_visit, [self()]),
-	    %erlang:link(server),
 
+
+start() ->
+    [ spawn(fun utente/0) || _ <- lists:seq(1,1) ].
 
 %---------------- UTILS ----------------%
 
@@ -123,8 +150,9 @@ sample(N, L)->
 
 sample(L,0,_) -> L;
 sample(L1, N, L2) ->
-    X = lists:nth(rand:uniform(length(L2)), L2),
-    sample(L1 ++ X, N-1, [Y || Y <- L2, Y/= X]).
+    io:format("Lista = ~p~n", [L2]),
+    X = lists:nth(rand:uniform(length(L2) - 1), L2),
+    sample(L1 ++ [X], N-1, [Y || Y <- L2, Y/= X]).
 
 sleep(N) ->
     receive after N*1000 -> ok end.

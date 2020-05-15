@@ -7,18 +7,22 @@ place_manager() ->
     new_visitor ->
       Result = rand:uniform(10),
       case Result of
-        10 -> exit(normal);   % close place
+        10 -> 
+	      %DEBUG
+	      io:format("Il posto chiude normalmente dopo una visita di un utente.~n"),
+	      exit(normal);   % close place
         _ -> place_manager()  % keep open
       end
   end.
 
-
+contact(_, []) -> ok;
 contact(NEW_VISITOR, [VISITOR | OTHER_VISITORS]) ->
   Result = rand:uniform(4),
   case Result of
     4 ->
-      NEW_VISITOR ! {contact, VISITOR},
-      VISITOR ! {contact, NEW_VISITOR},
+      {_, PID_VISITOR} = VISITOR,
+      NEW_VISITOR ! {contact, PID_VISITOR},
+      PID_VISITOR ! {contact, NEW_VISITOR},
       contact(NEW_VISITOR, OTHER_VISITORS);
 
     _ -> contact(NEW_VISITOR, OTHER_VISITORS)
@@ -35,8 +39,13 @@ contact_manager() ->
 
 update_visitors(VISITORS_LIST, PID_MANAGER) ->
   receive
-    % VISIT PROTOCOL/1: begin visit
-    {begin_visit, PID_VISITATORE, REF} ->
+      {'DOWN',_, process, _, normal} -> 
+	  exit(normal);
+      % VISIT PROTOCOL/1: begin visit
+      {begin_visit, PID_VISITATORE, REF} ->
+      %DEBUG
+      io:format("Lista di visitatori nel luogo: ~p~n", [VISITORS_LIST]),
+      io:format("Visitatore: ~p ha iniziato la visita di ~p~n", [PID_VISITATORE, self()]),
       % get pid managers
       {pid_manager, CM_pid, PM_pid} = PID_MANAGER,
       % CONTACT PROTOCOL
@@ -49,6 +58,8 @@ update_visitors(VISITORS_LIST, PID_MANAGER) ->
 
     % VISIT PROTOCOL/2: end visit
     {end_visit, PID_VISITATORE, REF} ->
+	  %DEBUG
+         io:format("Visitatore: ~p ha terminato la visita di ~p~n", [PID_VISITATORE, self()]),
       % notify end visit
       update_visitors(VISITORS_LIST -- [{REF, PID_VISITATORE}], PID_MANAGER)
   end.
@@ -62,9 +73,9 @@ luogo() ->
   % INIT PROTOCOL/2: notify server
   Server ! {new_place, self()},
   % contact manager
-  CM_pid = spawn_link(fun contact_manager/0),
+  {CM_pid, _} = spawn_monitor(fun contact_manager/0),
   % place manager
-  PM_pid = spawn_link(fun place_manager/0),
+  {PM_pid, _} = spawn_monitor(fun place_manager/0),
   % update visitors
   update_visitors([],{pid_manager, CM_pid, PM_pid}).
 
