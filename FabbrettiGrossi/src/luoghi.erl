@@ -33,25 +33,24 @@ contact_manager() ->
   contact_manager().
 
 
-update_visitors(VISITORS_LIST) ->
+update_visitors(VISITORS_LIST, PID_MANAGER) ->
   receive
     % VISIT PROTOCOL/1: begin visit
     {begin_visit, PID_VISITATORE, REF} ->
+      % get pid managers
+      {pid_manager, CM_pid, PM_pid} = PID_MANAGER,
       % CONTACT PROTOCOL
-      CM_pid = global:whereis_name(cm),
       CM_pid ! {find_contacts, PID_VISITATORE, VISITORS_LIST},
-
       % LIFE CYCLE
-      PM_pid = global:whereis_name(pm),
       PM_pid ! new_visitor,
 
       % notify begin visit
-      update_visitors([{REF, PID_VISITATORE} | VISITORS_LIST]);
+      update_visitors([{REF, PID_VISITATORE} | VISITORS_LIST], PID_MANAGER);
 
     % VISIT PROTOCOL/2: end visit
     {end_visit, PID_VISITATORE, REF} ->
       % notify end visit
-      update_visitors(VISITORS_LIST -- [{REF, PID_VISITATORE}])
+      update_visitors(VISITORS_LIST -- [{REF, PID_VISITATORE}], PID_MANAGER)
   end.
 
 
@@ -64,12 +63,10 @@ luogo() ->
   Server ! {new_place, self()},
   % contact manager
   CM_pid = spawn_link(fun contact_manager/0),
-  global:register_name(cm, CM_pid),
   % place manager
   PM_pid = spawn_link(fun place_manager/0),
-  global:register_name(pm, PM_pid),
   % update visitors
-  update_visitors([]).
+  update_visitors([],{pid_manager, CM_pid, PM_pid}).
 
 
 start() ->
