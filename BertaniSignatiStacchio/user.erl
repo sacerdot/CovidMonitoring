@@ -151,7 +151,6 @@ places_manager(USER_PLACES_LIST) ->
 
 %-----------Visit protocol-----------
 visit_manager(USER_PLACES, CONTACT_LIST) ->
-  %TODO SOLVE BLOCKING RECEIVE
   process_flag(trap_exit, true),
   link(whereis(server)),
   % io:format("VISIT MANAGER init ~p~p~n", [L,self()]),
