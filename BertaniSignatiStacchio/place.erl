@@ -23,13 +23,7 @@ visits(USER_LIST) ->
   receive
     {'EXIT', PID, _} ->
       io:format("Exit of ~p ~n", [PID]),
-      case lists:member({PID, _}, USER_LIST) of
-          true ->
-            % erase all PID occurrences in user list
-            io:format("True visit ~p ~n", [[{P, R} || {P, R} <- USER_LIST, P /= PID]]),
-            visits([{P, R} || {P, R} <- USER_LIST, P /= PID]);
-          false -> ok
-      end;
+      visits([{P, R} || {P, R} <- USER_LIST, P /= PID]);
     {begin_visit, USER_START, REF} ->
       V = rand:uniform(100),
       case (V =< 10) of
