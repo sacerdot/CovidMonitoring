@@ -2,6 +2,7 @@
 -export([start/0]).
 -import(utils, [sleep/1, set_subtract/2]).
 
+% PROTOCOLLO DI INIZIALIZZAZIONE
 loop(L) ->
   receive
     {new_place, PID} ->
@@ -30,6 +31,7 @@ init_server(L) ->
   process_flag(trap_exit, true),
   loop(L).
 
+% PROTOCOLLO DI MANTENIMENTO DELLA TOPOLOGIA
 start() ->
   global:register_name(server, self()),
   io:format("Io sono il server~n", []),

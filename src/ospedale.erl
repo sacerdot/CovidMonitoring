@@ -2,6 +2,7 @@
 -export([start/0, test/1]).
 -import(utils, [make_probability/1, check_service/1]).
 
+% PROTOCOLLO DI TEST
 test(Probability) ->
   receive
     {test_me, PID} ->
@@ -16,6 +17,7 @@ test(Probability) ->
   end,
   test(Probability).
 
+% PROTOCOLLO DI MANTENIMENTO DELLA TOPOLOGIA
 start() ->
   io:format("Io sono l'ospedale~n", []),
   global:register_name(ospedale, self()),

@@ -2,6 +2,7 @@
 -export([start/0, luogo/0, init_luogo/1, visit_place/2]).
 -import(utils, [sleep/1, set_subtract/2, make_probability/1, check_service/1]).
 
+% PROTOCOLLO DI INIZIALIZZAZIONE
 init_luogo(Prob) ->
   PidServer = check_service(server),
   PidServer ! {ciao, da, luogo, self()},
@@ -16,6 +17,7 @@ get_probs() ->
     maps:get(X, Probs)
   end.
 
+% PROTOCOLLO DI VISITA DEI LUOGHI
 visit_place(L, Probs) ->
   receive
     {begin_visit, PID, Ref} ->
@@ -35,6 +37,7 @@ visit_place(L, Probs) ->
       visit_place(NL, Probs)
   end.
 
+% PROTOCOLLO DI RILEVAMENTO DEI CONTATTI
 contact_tracing(_, [], _) -> ok;
 contact_tracing(NewUser, [PidOldUser | T], Prob) ->
   case Prob() of
@@ -43,6 +46,7 @@ contact_tracing(NewUser, [PidOldUser | T], Prob) ->
   end,
   contact_tracing(NewUser, T, Prob).
 
+% CICLO DI VITA
 check_for_closing(Prob) ->
   case Prob() of
     1 -> exit(normal);

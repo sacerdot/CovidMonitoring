@@ -2,6 +2,7 @@
 -export([main/0, list/2, check_list/2, visit_places/2, contact_tracing/1, actorDispatcher/0, get_places_updates/2, require_test/2, utente/0, start/0]).
 -import(utils, [sleep/1, set_subtract/2, take_random/2, check_service/1, make_probability/1]).
 
+% PROTOCOLLO DI MANTENIMENTO DELLA TOPOLOGIA (a)
 main() ->
   PidServer = check_service(server),
   PidServer ! {ciao,da,utente,self()},
@@ -40,7 +41,7 @@ loop(ContactTrace, RequiredTest, MergList) ->
   end,
   loop(ContactTrace, RequiredTest, MergList).
 
-% actor handling list
+% PROTOCOLLO DI MANTENIMENTO DELLA TOPOLOGIA (b)
 list(PidDispatcher, L) ->
   receive
     {get_list, Pid} ->
@@ -77,6 +78,7 @@ get_places_updates(PidDispatcher, ActorList) ->
   end,
   get_places_updates(PidDispatcher, ActorList).
 
+% PROTOCOLLO DI MANTENIMENTO DELLA TOPOLOGIA (c, d)
 check_list(ActorList, PidDispatcher) ->
   ActorList ! {get_list, self()},
   receive
@@ -90,6 +92,7 @@ check_list(ActorList, PidDispatcher) ->
   sleep(10000),
   check_list(ActorList, PidDispatcher).
 
+% PROTOCOLLO DI VISITA DEI LUOGHI
 visit_places(ActorList, PidDispatcher) ->
   ActorList ! {get_list, self()},
   receive
@@ -107,6 +110,7 @@ visit_places(ActorList, PidDispatcher) ->
       visit_places(ActorList, PidDispatcher)
   end.
 
+% PROTOCOLLO DI RILEVAMENTO DEI CONTATTI (a,b)
 contact_tracing(PidDispatcher) ->
   process_flag(trap_exit, true),
   contact_tracing_loop(PidDispatcher).
@@ -135,6 +139,7 @@ contact_tracing_loop(PidDispatcher) ->
       io:format("[User] ~p Messaggio non gestito ~p~n", [self(), Msg])
   end.
 
+% PROTOCOLLO DI TEST (a,b)
 require_test(PidDispatcher, Probability) ->
   sleep(30000),
   case Probability() of
