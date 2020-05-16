@@ -16,13 +16,15 @@ sleep(N) -> receive after N -> ok end.
 %-----------Initialization protocol-----------
 start() ->
   sleep(2000),
-  io:format("ping result: ~p~n", [net_adm:ping('server@DESKTOP-3VI6PMB.homenet.telecomitalia.it')]),
-  link(whereis(server)),
-  server ! {new_place, self()},
-  spawn_link(?MODULE, visits, [[]]).
+  link(global:whereis_name(server)),
+  global:whereis_name(server) ! {new_place, self()},
+  visits([]).
+  %spawn_link(?MODULE, visits, [[]]).
 
 %-----------Visit protocol-----------
 visits(USER_LIST) ->
+  io:format("SONO VISIT~p~n", [USER_LIST]),
+  [link(PID) || PID <- USER_LIST],
   receive
     {'EXIT', PID, _} ->
       io:format("Exit of ~p ~n", [PID]),
@@ -39,6 +41,7 @@ visits(USER_LIST) ->
     {end_visit, USER_END, REF} ->
       case lists:member({USER_END, REF}, USER_LIST) of
         true ->
+          %TODO: FORSE FARE UNLINK
           visits(USER_LIST -- [{USER_END, REF}]);
         false ->
           visits(USER_LIST)

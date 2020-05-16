@@ -11,7 +11,7 @@
 %% API
 -export([start/0, start_loop/2, places_manager/1, get_places/3, test_manager/0, simple_place/1, visit_manager/2]).
 -define(TIMEOUT_PLACE_MANAGER, 10000).
--define(TIMEOUT_TEST_MANAGER, 50000).
+-define(TIMEOUT_TEST_MANAGER, 30000).
 % number of places a user keep track
 -define(USER_PLACES_NUMBER, 3).
 
@@ -69,8 +69,11 @@ get_places(N, LIST_TO_RETURN, PID) ->
   if
     length(LIST_TO_RETURN) < N ->
       global:whereis_name(server) ! {get_places, self()},
+      %io:format("RICHIESTA INVIATA a~p~n", [ global:whereis_name(server)]),
       receive
+        _ -> io:format("ricevuto in getplaces", []);
         {places, ACTIVE_PLACES} ->
+          io:format("PLACES RICEVUTI~p~n", [ACTIVE_PLACES]),
           case length(ACTIVE_PLACES) > N of
             true ->
               get_places(N, get_random_elements_from_list(ACTIVE_PLACES, N, LIST_TO_RETURN), PID);
@@ -176,7 +179,6 @@ test_manager() ->
 %-----------Monitor  protocol-----------
 
 %-----------Main-----------
-
 % if the server dies, kill everything
 start_loop(SPAWNED_PROCESSES,SERVER_PID) ->
   process_flag(trap_exit, true),
@@ -191,9 +193,7 @@ start_loop(SPAWNED_PROCESSES,SERVER_PID) ->
 start() ->
   sleep(2000),
   %mettere link al server
-  %N = lists:seq(0, 10),
-  %io:format("ping result: ~p~n", [net_adm:ping('server@DESKTOP-3VI6PMB.homenet.telecomitalia.it')]),
-  io:format("ping result: ~p~n", [net_adm:ping('hospital@DESKTOP-3VI6PMB.homenet.telecomitalia.it')]),
+  %io:format("ping result: ~p~n", [net_adm:ping('hospital@DESKTOP-3VI6PMB.homenet.telecomitalia.it')]),
   %io:format("server pid~p~p~n", [server, global:whereis_name(server)]).
   PLACES_MANAGER = spawn_link(?MODULE, places_manager, [[]]),
   register(places_manager, PLACES_MANAGER),

@@ -15,7 +15,14 @@ launch () ->
   compile:file(hospital),
   compile:file(place),
   compile:file(user),
-  spawn(fun()->os:cmd('werl -name server -s central_server start') end),
-  spawn(fun()->os:cmd('werl -name hospital -s hospital start') end),
-  spawn(fun()->os:cmd('werl -name place -s place start') end),
-  spawn(fun()->os:cmd('werl -name user -s user start') end).
+  spawn(central_server,start,[]),
+  spawn(hospital,start,[]),
+  spawn(place,start,[]),
+  spawn(user,start,[]),
+  receive {_} -> ko end.
+
+
+%%  spawn(fun()->os:cmd('werl -name server -s central_server start') end),
+%%  spawn(fun()->os:cmd('werl -name hospital -s hospital start') end),
+%%  spawn(fun()->os:cmd('werl -name place -s place start') end),
+%%  spawn(fun()->os:cmd('werl -name user -s user start') end).
