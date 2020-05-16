@@ -15,7 +15,7 @@ launch () ->
   compile:file(hospital),
   %compile:file(place),
   compile:file(user),
-  os:cmd('werl -s central_server run'),
-  os:cmd('werl -s hospital start'),
+  spawn(fun()->os:cmd('werl -s central_server run') end),
+  spawn(fun()->os:cmd('werl -s hospital start') end),
   %os:cmd('werl -s places init'),
-  os:cmd('werl -s user start').
+  user:start().
