@@ -10,29 +10,33 @@
 -author("Federico Bertani").
 
 %% API
--export([run/0]).
+-export([start/0, start_loop/1]).
 
-run() ->
+start_loop(PLACES)->
+  process_flag(trap_exit, true),
+  io:format("set flag to trap exit ~n"),
+  [link(PID) || PID <- PLACES],
+  io:format("created list for PIDs ~n"),
+  receive
+  % remove from places list dead place
+    {'EXIT',PID_EXIT,_} ->
+      io:format("Place ~p is dead ~n",[PID_EXIT]),
+      start_loop(PLACES--[PID_EXIT]);
+  % a new place is registering
+    {new_place,NEW_PID} ->
+      io:format("Place ~p want to register ~n",[NEW_PID]),
+      start_loop(PLACES ++ [NEW_PID]);
+  % user requested list of places
+    {get_places, PID_GETTER} ->
+      io:format("User ~p requested places list ~n",[PID_GETTER]),
+      PID_GETTER ! {places, PLACES},
+      start_loop(PLACES)
+  end.
+
+start() ->
   io:format("central server started pid=~p ~n",[self()]),
   % register central server name
   global:register_name(server,self()),
   io:format("registered server global name ~n"),
   % trapping exit signal from users
-  process_flag(trap_exit, true),
-  io:format("set flag to trap exit ~n"),
-  PIDLIST = [],
-  io:format("created list for PIDs ~n"),
-  receive
-    % a new place is registering
-    {new_place,Place_pid} ->
-      io:format("Place ~p want to register ~n",[Place_pid]),
-      PIDLIST ++ [Place_pid];
-    % user requested list of places
-    {get_places, Pid} ->
-      io:format("User ~p requested places list ~n",[Pid]),
-      Pid ! {places, PIDLIST};
-    % remove from places list dead place
-    {'EXIT',FromPid,Reason} ->
-      io:format("Place ~p is dead ~n",[FromPid]),
-      PIDLIST = lists:delete(FromPid,PIDLIST)
-  end.
+  start_loop([]).

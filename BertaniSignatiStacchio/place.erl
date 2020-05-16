@@ -10,10 +10,13 @@
 -author("TeresaSignati").
 
 %% API
--export([init/0, visits/1, touch/2]).
+-export([start/0, visits/1, touch/2]).
+sleep(N) -> receive after N -> ok end.
 
 %-----------Initialization protocol-----------
-init() ->
+start() ->
+  sleep(2000),
+  io:format("ping result: ~p~n", [net_adm:ping('server@DESKTOP-3VI6PMB.homenet.telecomitalia.it')]),
   link(whereis(server)),
   server ! {new_place, self()},
   spawn_link(?MODULE, visits, [[]]).

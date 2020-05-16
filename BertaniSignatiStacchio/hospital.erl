@@ -8,16 +8,16 @@
 %%%-------------------------------------------------------------------
 -module(hospital).
 -author("Federico Bertani").
-
 %% API
 -export([start/0]).
+
 
 start() ->
   io:format("hospital started pid=~p ~n",[self()]),
   global:register_name(hospital,self()),
   io:format("hospital registered~n"),
   receive
-    % an user want to be tested
+     % an user want to be tested
     {test_me, PID} ->
       io:format("process ~p want to be tested ~n",[PID]),
       % answer with probability 25% to be positive

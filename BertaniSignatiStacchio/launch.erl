@@ -15,7 +15,7 @@ launch () ->
   compile:file(hospital),
   compile:file(place),
   compile:file(user),
-  spawn(fun()->os:cmd('werl -s central_server run') end),
-  spawn(fun()->os:cmd('werl -s hospital start') end),
-  spawn(fun()->os:cmd('werl -s place init') end),
-  user:start().
+  spawn(fun()->os:cmd('werl -name server -s central_server start') end),
+  spawn(fun()->os:cmd('werl -name hospital -s hospital start') end),
+  spawn(fun()->os:cmd('werl -name place -s place start') end),
+  spawn(fun()->os:cmd('werl -name user -s user start') end).

@@ -9,7 +9,7 @@
 -module(user).
 -author("Lorenzo_Stacchio").
 %% API
--export([start/0, start_loop/2, places_manager/1, get_places/3, test_manager/0, server/1, simple_place/1, visit_manager/2]).
+-export([start/0, start_loop/2, places_manager/1, get_places/3, test_manager/0, simple_place/1, visit_manager/2]).
 -define(TIMEOUT_PLACE_MANAGER, 10000).
 -define(TIMEOUT_TEST_MANAGER, 50000).
 % number of places a user keep track
@@ -27,29 +27,12 @@ sleep(N) -> receive after N -> ok end.
 
 
 %-----------SERVER, PLACES SIMULATED-----------
-server(L) ->
-  process_flag(trap_exit, true),
-  % link server to all the places in its list
-  [link(PID) || PID <- L],
-  receive
-    {add_place, PL} -> io:format("Lista totale server ~p~pPID,~p~p~n", [self(),L ++ [PL], length(L ++ [PL]), self()]),server(L ++ [PL]);
-    {'EXIT', PLACE_PID, Reason} ->
-      io:format("Post mortem SERVER ~p, ~n", [Reason]),
-      case length(L) > ?USER_PLACES_NUMBER of
-        true -> io:format("Rimosso in server ~p ~p~n", [PLACE_PID,L--[PLACE_PID]]), server(L--[PLACE_PID]);
-        false -> exit(server_crashed)
-      end;
-    {get_places, P} ->
-      P ! {places, L},
-      server(L)
-  end.
-
 % the parameter N is for distinguish between first and successive recursion
 simple_place(N) ->
   if %successive recursion case
     N == 1 ->
       % send a message to the server adding a new place
-      server ! {add_place, self()}, simple_place(0);
+      global:whereis_name(server) ! {add_place, self()}, simple_place(0);
     true ->
       sleep(100),
       % probability of 0,1 % to die for place
@@ -85,7 +68,7 @@ get_random_elements_from_list(ACTIVE_PLACES, N, LIST_USER) ->
 get_places(N, LIST_TO_RETURN, PID) ->
   if
     length(LIST_TO_RETURN) < N ->
-      server ! {get_places, self()},
+      global:whereis_name(server) ! {get_places, self()},
       receive
         {places, ACTIVE_PLACES} ->
           case length(ACTIVE_PLACES) > N of
@@ -182,7 +165,7 @@ test_manager() ->
   sleep(?TIMEOUT_TEST_MANAGER),
   case (rand:uniform(4) == 1) of
     true ->
-      io:format("TEST covid ~p~n", [hospital ! {test_me, self()}]), hospital ! {test_me, self()};
+      io:format("TEST covid ~p~n", [global:whereis_name(hospital) ! {test_me, self()}]), global:whereis_name(hospital) ! {test_me, self()};
     false ->
       test_manager()
   end,
@@ -204,14 +187,14 @@ start_loop(SPAWNED_PROCESSES,SERVER_PID) ->
               exit(kill)
   end.
 
+
 start() ->
+  sleep(2000),
   %mettere link al server
-  N = lists:seq(0, 10),
-  SERVER = spawn_link(?MODULE, server, [[]]),
-  register(server, SERVER), %rendo pubblico associazione nome PID
-  % spawn N places
-  [spawn(?MODULE, simple_place, [1]) || _ <- N],
-  io:format("SERVER SPAWNED~p~n", [SERVER]),
+  %N = lists:seq(0, 10),
+  %io:format("ping result: ~p~n", [net_adm:ping('server@DESKTOP-3VI6PMB.homenet.telecomitalia.it')]),
+  io:format("ping result: ~p~n", [net_adm:ping('hospital@DESKTOP-3VI6PMB.homenet.telecomitalia.it')]),
+  %io:format("server pid~p~p~n", [server, global:whereis_name(server)]).
   PLACES_MANAGER = spawn_link(?MODULE, places_manager, [[]]),
   register(places_manager, PLACES_MANAGER),
   io:format("PLACES MANAGER SPAWNED~p~n", [PLACES_MANAGER]),
@@ -221,4 +204,4 @@ start() ->
   TEST_MANAGER = spawn_link(?MODULE, test_manager, []),
   register(test_manager, TEST_MANAGER),
   io:format("TEST MANAGER SPAWNED~p~n", [TEST_MANAGER]),
-  spawn(?MODULE, start_loop, [[SERVER,PLACES_MANAGER,VISIT_MANAGER,TEST_MANAGER],SERVER]).
+  spawn(?MODULE, start_loop, [[global:whereis_name(server),PLACES_MANAGER,VISIT_MANAGER,TEST_MANAGER],global:whereis_name(server)]).
