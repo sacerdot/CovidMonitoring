@@ -113,12 +113,13 @@ contact_tracing(PidDispatcher) ->
 contact_tracing_loop(PidDispatcher) ->
   receive
     {contact, PID} ->
-      try
-        link(PID),
-        io:format("[User] ~p linked to ~p~n", [PidDispatcher, PID])
-      catch X ->
-        io:format("[User] ~p unable to link to ~p error ~p~n", [PidDispatcher, PID, X])
-      end,
+      %let it fail
+      %try
+      link(PID),
+      io:format("[User] ~p linked to ~p~n", [PidDispatcher, PID]),
+      %catch X ->
+      %  io:format("[User] ~p unable to link to ~p error ~p~n", [PidDispatcher, PID, X])
+      %end,
       contact_tracing_loop(PidDispatcher);
     {'EXIT', _, R} ->
       case R of
