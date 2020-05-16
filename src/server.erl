@@ -13,7 +13,7 @@ loop(L) ->
       end;
     % DOWN message from a monitored place died
     {_, _, process, Pid, Reason} ->
-      io:format("[Server] Process ~p died with reason ~p ~n", [Pid, Reason]),
+      io:format("[Server] Monitored place ~p died with reason ~p ~n", [Pid, Reason]),
       loop(set_subtract(L, [Pid]));
     {get_places, PID} ->
       PID ! {places, L}, % L = lista dei Pid dei luoghi attivi
@@ -22,8 +22,7 @@ loop(L) ->
     {'EXIT', _, _} ->
       loop(L);
     Msg ->
-      % Check unexpected message from other actors
-      io:format("[Server] Messaggio non gestito ~p~n", [Msg]),
+      io:format("[Server] ~p~n", [Msg]),
       loop(L)
   end.
 
