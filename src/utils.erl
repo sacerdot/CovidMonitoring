@@ -1,5 +1,5 @@
 -module(utils).
--export([sleep/1, set_subtract/2, take_random/2, make_probability/1]).
+-export([sleep/1, set_subtract/2, take_random/2, make_probability/1, check_service/1]).
 
 sleep(T) ->
   receive after T -> ok end.
@@ -21,4 +21,14 @@ make_probability(X) ->
       true -> 1;
       false -> 0
     end
+  end.
+
+%check server and ospedale
+check_service(X) ->
+  PidService = global:whereis_name(X),
+  case PidService of
+    undefined ->
+      io:format("~p non trovato ~n", [X]),
+      exit(server_not_registered);
+    P -> P
   end.

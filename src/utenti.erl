@@ -1,16 +1,12 @@
 -module(utenti).
--export([main/0, list/2, check_list/2, visit_places/2, contact_tracing/1, actorDispatcher/0, get_places_updates/2, require_test/1, utente/0, start/0]).
--import(utils, [sleep/1, set_subtract/2, take_random/2]).
+-export([main/0, list/2, check_list/2, visit_places/2, contact_tracing/1, actorDispatcher/0, get_places_updates/2, require_test/2, utente/0, start/0]).
+-import(utils, [sleep/1, set_subtract/2, take_random/2, check_service/1, make_probability/1]).
 
 main() ->
-  PID = global:whereis_name(server),
-  case PID of
-    undefined -> exit(server_not_registered);
-    P ->
-      P ! {ciao,da,utente,self()},
-      link(P),
-      actorDispatcher()
-  end.
+  PidServer = check_service(server),
+  PidServer ! {ciao,da,utente,self()},
+  link(PidServer),
+  actorDispatcher().
 
 actorDispatcher() ->
   process_flag(trap_exit, true),
@@ -22,7 +18,7 @@ actorDispatcher() ->
   io:format("[ActorDispatcher] User ~p visitplace ~p ~n", [self(), VisitPlace]),
   ActorContactTrace = spawn_link(?MODULE, contact_tracing, [self()]),
   io:format("[ActorDispatcher] User ~p actorContactTrace ~p ~n", [self(), ActorContactTrace]),
-  ActorRequiredTest = spawn_link(?MODULE, require_test, [self()]),
+  ActorRequiredTest = spawn_link(?MODULE, require_test, [self(), make_probability(25)]),
   io:format("[ActorDispatcher] User ~p ActorRequiredTest ~p ~n", [self(), ActorRequiredTest]),
   ActorMergeList = spawn_link(?MODULE, get_places_updates, [self(), ActorList]),
   io:format("[ActorDispatcher] User ~p ActorMergeList ~p ~n", [self(), ActorMergeList]),
@@ -31,48 +27,46 @@ actorDispatcher() ->
 loop(ContactTrace, RequiredTest, MergList) ->
   receive
     {places, PIDLIST} ->
-      %io:format("[Dispatcher] Received places from server with PIDLIST: ~p~n", [PIDLIST]),
       MergList ! {places, PIDLIST};
     {contact, PID} -> ContactTrace ! {contact, PID};
     positive -> RequiredTest ! positive;
     negative -> RequiredTest ! negative;
     {'EXIT', Sender, R} -> 
     io:format("[Dispatcher] ~p received exit from ~p with: ~p~n", [self(), Sender, R]), 
-    exit(R)
-    %Msg -> io:format("[Dispatcher] Messaggio non gestito: ~p~n", [Msg])
+    exit(R);
+    Msg ->
+      % Check unexpected message from other actors
+      io:format("[Dispatcher] ~p  ~p~n", [self(), Msg])
   end,
   loop(ContactTrace, RequiredTest, MergList).
 
-% attore che gestisce la lista
+% actor handling list
 list(PidDispatcher, L) ->
-  %io:format("[ActorList] User ~p with active places: ~p~n", [PidDispatcher, L]),
   receive
     {get_list, Pid} ->
-      %io:format("[ActorList] User ~p receveid get_list from pid: ~p~n", [PidDispatcher, Pid]),
       Pid ! L,
       list(PidDispatcher, L);
     {update_list, L1} ->
-      %io:format("[ActorList] User ~p received update_list with places ~p ~n", [PidDispatcher, L1]),
-      % monitoro tutti i luoghi nella lista L1
+      % monitor all places in L1
       [monitor(process, X) || X <- L1],
       list(PidDispatcher, L1 ++ L);
       % messages from a dead place (DOWN)
-    _ ->
+    {_, _, process, _, _} ->
       global:send(server, {get_places, PidDispatcher}),
+      list(PidDispatcher, L);
+    Msg ->
+      % Check unexpected message from other actors
+      io:format("[User] ~p Messaggio non gestito ~p~n", [self(), Msg]),
       list(PidDispatcher, L)
   end.
 
 get_places_updates(PidDispatcher, ActorList) ->
   receive
-    % aspetto il messaggio dal server con i luoghi attivi
     {places, PIDLIST} ->
-      % chiedo all'attore List la mia lista ttuale dei luoghi
-      %io:format("[Get_Places_Updates] send get_list from pid: ~p~n", [self()]),
       ActorList ! {get_list, self()},
       receive
         L ->
           R = set_subtract(PIDLIST, L),
-          %io:format("[get_places_updates] User ~p get_list ~p~n", [PidDispatcher, R]),
           case length(L) of
             0 -> ActorList ! {update_list, take_random(R, 3)};
             1 -> ActorList ! {update_list, take_random(R, 2)};
@@ -100,7 +94,6 @@ visit_places(ActorList, PidDispatcher) ->
   ActorList ! {get_list, self()},
   receive
     L ->
-      %io:format("[Visit place] User ~p places: ~p ~n", [PidDispatcher, L]),
       case length(L) >= 1 of
         true ->
           REF = make_ref(),
@@ -127,32 +120,26 @@ contact_tracing_loop(PidDispatcher) ->
         io:format("[User] ~p unable to link to ~p error ~p~n", [PidDispatcher, PID, X])
       end,
       contact_tracing_loop(PidDispatcher);
-    {'EXIT', PidExit, R} -> % TODO rewrite
+    {'EXIT', _, R} ->
       case R of
         quarantine ->
           io:format("[User] ~p entro in quaratena ~n", [PidDispatcher]),
           exit(quarantine);
         positive ->
           io:format("[User] ~p entro in quaratena ~n", [PidDispatcher]),
-          exit(quarantine);
-        _ ->
-          io:format("[User] <D ~p, U ~p> get an exit msg from ~p with reason ~p ~n", [PidDispatcher,self(), PidExit, R]),
-          % TODO check logic
-          exit(R)
-      end
+          exit(quarantine)
+      end ;
+    Msg ->
+      % Check unexpected message from other actors
+      io:format("[User] ~p Messaggio non gestito ~p~n", [self(), Msg])
   end.
 
-require_test(PidDispatcher) ->
+require_test(PidDispatcher, Probability) ->
   sleep(30000),
-  case rand:uniform(4) of
+  case Probability() of
     1 ->
-      PID = global:whereis_name(ospedale),
-      case PID of 
-        undefined -> 
-          exit(ospedale_not_registered);
-        P -> 
-          P ! {test_me, PidDispatcher}
-      end,
+      PidOspedale = check_service(ospedale),
+      PidOspedale ! {test_me, PidDispatcher},
       receive
         positive ->
           io:format("[User] ~p sono positivo ~n", [PidDispatcher]),
@@ -161,7 +148,7 @@ require_test(PidDispatcher) ->
       end;
     _ -> ok
   end,
-  require_test(PidDispatcher).
+  require_test(PidDispatcher, Probability).
 
 utente() ->
   io:format("Io sono l'utente ~p~n",[self()]),
