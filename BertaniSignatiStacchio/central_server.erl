@@ -19,15 +19,18 @@ start_loop(PLACES)->
   io:format("set flag to trap exit ~p~n",[PLACES]),
   process_flag(trap_exit, true),
   %io:format("set flag to trap exit ~n"),
-  [link(PID) || PID <- PLACES],
   %io:format("created list for PIDs ~n"),
   receive
   % remove from places list dead place
     {'EXIT',PID_EXIT,_} ->
-      io:format("Place ~p is dead ~n",[PID_EXIT]),
-      start_loop(PLACES--[PID_EXIT]);
+      case lists:member(PID_EXIT,PLACES) of
+        true-> io:format("Place ~p is dead ~n",[PID_EXIT]),
+          start_loop(PLACES--[PID_EXIT]);
+        false-> ok
+      end;
   % a new place is registering
     {new_place,NEW_PID} ->
+      link(NEW_PID),
       io:format("Place ~p want to register ~n",[NEW_PID]),
       start_loop(PLACES ++ [NEW_PID]);
   % user requested list of places

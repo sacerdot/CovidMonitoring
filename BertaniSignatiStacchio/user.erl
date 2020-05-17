@@ -69,12 +69,10 @@ get_places(N, LIST_TO_RETURN, PID) ->
   if
     length(LIST_TO_RETURN) < N ->
       global:whereis_name(server) ! {get_places, self()},
-      %io:format("RICHIESTA INVIATA a~p~n", [ global:whereis_name(server)]),
       receive
-        _ -> io:format("ricevuto in getplaces", []);
         {places, ACTIVE_PLACES} ->
           io:format("PLACES RICEVUTI~p~n", [ACTIVE_PLACES]),
-          case length(ACTIVE_PLACES) > N of
+          case length(ACTIVE_PLACES) >= N of
             true ->
               get_places(N, get_random_elements_from_list(ACTIVE_PLACES, N, LIST_TO_RETURN), PID);
             % not enough active places, die
@@ -89,16 +87,19 @@ get_places(N, LIST_TO_RETURN, PID) ->
 places_manager(USER_PLACES_LIST) ->
   process_flag(trap_exit, true), % places_manager need to know if a place has died to request new places to server
   PID_GETTER = spawn_link(?MODULE, get_places, [?USER_PLACES_NUMBER, USER_PLACES_LIST, self()]),
+  io:format("CALLED_PID_GETTER~p~n", [PID_GETTER]),
   case length(USER_PLACES_LIST) < ?USER_PLACES_NUMBER of
     true ->
       ok;
     false ->
+      io:format("QUANTI CAZZO SONO~p~p~n", [length(USER_PLACES_LIST), ?USER_PLACES_NUMBER]),
       exit(PID_GETTER, kill),
       sleep(?TIMEOUT_PLACE_MANAGER)
   end,
   % spawn a process to asynchronously retrieve up to {USER_PLACES_NUMBER} places
   receive
     {'EXIT', PID, _} -> % a place have died
+      %((length(USER_PLACES_LIST) > 0)
       case ((length(USER_PLACES_LIST) > 0) and lists:member(PID, USER_PLACES_LIST)) of
         true -> %exit(PID_GETTER, kill),
           io:format("Post mortem PLACE MANAGER2 ~p,~p,~p,~n", [PID, USER_PLACES_LIST--[PID], length(USER_PLACES_LIST--[PID])]),
@@ -107,7 +108,7 @@ places_manager(USER_PLACES_LIST) ->
           places_manager(USER_PLACES_LIST--[PID]);
         false -> exit(PID_GETTER, kill), places_manager(USER_PLACES_LIST)
       end;
-  %end;
+        %end;
     {new_places, NEW_PLACES} -> % message received from the spawned process that asked the new places
       io:format("PLACES MANTAINER UPDATED~p,~p,~n", [NEW_PLACES, length(NEW_PLACES)]),
       [link(PID) || PID <- NEW_PLACES],% create a link to all this new places
@@ -168,7 +169,8 @@ test_manager() ->
   sleep(?TIMEOUT_TEST_MANAGER),
   case (rand:uniform(4) == 1) of
     true ->
-      io:format("TEST covid ~p~n", [global:whereis_name(hospital) ! {test_me, self()}]), global:whereis_name(hospital) ! {test_me, self()};
+      io:format("TEST covid ~p~n", [global:whereis_name(hospital) ! {test_me, self()}]),
+      global:whereis_name(hospital) ! {test_me, self()};
     false ->
       test_manager()
   end,
@@ -180,28 +182,28 @@ test_manager() ->
 
 %-----------Main-----------
 % if the server dies, kill everything
-start_loop(SPAWNED_PROCESSES,SERVER_PID) ->
+start_loop(SPAWNED_PROCESSES, SERVER_PID) ->
   process_flag(trap_exit, true),
   [link(P_SP) || P_SP <- SPAWNED_PROCESSES],
   receive {'EXIT', SERVER_PID, _} ->
-      io:format("MORTO SERVER~p~p~n", [SERVER_PID,SPAWNED_PROCESSES--[SERVER_PID]]),
-              [exit(P,kill) || P <- SPAWNED_PROCESSES--[SERVER_PID]],
-              exit(kill)
+    io:format("MORTO SERVER~p~p~n", [SERVER_PID, SPAWNED_PROCESSES--[SERVER_PID]]),
+    sleep(100000),
+    [exit(P, kill) || P <- SPAWNED_PROCESSES--[SERVER_PID]],
+    exit(kill)
   end.
 
 
 start() ->
   sleep(2000),
   %mettere link al server
-  %io:format("ping result: ~p~n", [net_adm:ping('hospital@DESKTOP-3VI6PMB.homenet.telecomitalia.it')]),
-  %io:format("server pid~p~p~n", [server, global:whereis_name(server)]).
-  PLACES_MANAGER = spawn_link(?MODULE, places_manager, [[]]),
+  io:format("ping result: ~p~n", [net_adm:ping('hospital@macerata.homenet.telecomitalia.it')]),
+  PLACES_MANAGER = spawn(?MODULE, places_manager, [[]]),
   register(places_manager, PLACES_MANAGER),
   io:format("PLACES MANAGER SPAWNED~p~n", [PLACES_MANAGER]),
-  VISIT_MANAGER = spawn_link(?MODULE, visit_manager, [[], []]),
+  VISIT_MANAGER = spawn(?MODULE, visit_manager, [[], []]),
   register(visit_manager, VISIT_MANAGER),
   io:format("VISITOR MANAGER SPAWNED~p~n", [VISIT_MANAGER]),
-  TEST_MANAGER = spawn_link(?MODULE, test_manager, []),
+  TEST_MANAGER = spawn(?MODULE, test_manager, []),
   register(test_manager, TEST_MANAGER),
   io:format("TEST MANAGER SPAWNED~p~n", [TEST_MANAGER]),
-  spawn(?MODULE, start_loop, [[global:whereis_name(server),PLACES_MANAGER,VISIT_MANAGER,TEST_MANAGER],global:whereis_name(server)]).
+  spawn(?MODULE, start_loop, [[global:whereis_name(server), PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER], global:whereis_name(server)]).
