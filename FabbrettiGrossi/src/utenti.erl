@@ -4,13 +4,14 @@
 -record(status,{visiting = -1,
 		visitor_pid = -1,
 		visiting_ref = -1,
+    place_pid = -1,
 		places = []}).
 
 place_manager(Manager, Pid_observer) ->
     Manager ! {ask_status, self()},
     Status = receive {status, RStatus} -> RStatus end,
     Places = Status#status.places,
-    io:format("Lista dei posti di ~p: ~p~n", [self(), Places]),
+    Manager ! debug,
     case length(Places) < 3 of
         false -> ok;
         true ->
@@ -40,21 +41,20 @@ do_test(Manager) ->
     global:send(hospital, {test_me, self()}),
     receive
         positive ->
-            io:format("Sono positivo.~n"),
+            io:format("~p: Sono positivo.~n", [self()]),
             Manager ! {ask_status, self()},
             receive
                 {status, Status} when Status#status.visiting /= -1 ->
-                    io:format("Response received ~n"),
-                    Luogo = Status#status.visiting,
+                    Luogo = Status#status.place_pid,
                     Luogo ! {end_visit, Status#status.visitor_pid, Status#status.visiting_ref},
                     exit(positive);
                 {status, _} ->
                     exit(positive)
             end;
         negative ->
-            io:format("Sono negativo.~n")
+            io:format("~p: Sono negativo.~n", [self()])
     end,
-    sleep(1),
+    sleep(4),
     do_test(Manager).
 
 perform_visit(Manager) ->
@@ -64,20 +64,19 @@ perform_visit(Manager) ->
 
     case length(Places) > 0 of
         false ->
-            io:format("Non ci sono posti da visitare, dormo.~n");
+            io:format("~p: Non ci sono posti da visitare, dormo.~n", [self()]);
         true ->
             [Place | _] = sample(1, Places),
             Ref = erlang:make_ref(),
-            io:format("Sto per iniziare una visita, sono ~p~n", [self()]),
-            io:format("Place ~p~n", [Place]),
+            io:format("~p: Sto per iniziare una visita ~n", [self()]),
             Place ! {begin_visit, self(), Ref},
 
-            update_status(Manager, {update_visit, self(), Ref, 1}),
+            update_status(Manager, {update_visit, self(), Ref, 1, Place}),
             Visit_time = rand:uniform(5) + 5,
             spawn(?MODULE, reminder, [self(), Visit_time]),
             receive_contact(),
-            update_status(Manager, {update_visit, -1, -1, -1}),
-            io:format("Sto per concludere una visita, sono ~p~n", [self()]),
+            update_status(Manager, {update_visit, -1, -1, -1, -1}),
+            io:format("~p: Sto per concludere una visita~n", [self()]),
             Place ! {end_visit, self(), Ref}
     end,
     sleep_random(3,5),
@@ -94,8 +93,8 @@ update_status(Manager, Update) ->
     NewStatus = case Update of
                     {update_places, Places} ->
                         Status#status{places = Places};
-                    {update_visit, Pid, Ref, Visiting} ->
-                        Status#status{visiting = Visiting, visitor_pid = Pid, visiting_ref = Ref};
+                    {update_visit, Pid, Ref, Visiting, Place} ->
+                        Status#status{visiting = Visiting, visitor_pid = Pid, visiting_ref = Ref, place_pid = Place};
                     Other ->
                         io:format("Tupla non prevista: ~p~n", [Other]),
                         Status
@@ -112,6 +111,9 @@ receive_contact() ->
 
 loop(Status) ->
     receive
+        debug ->
+            io:format("~p: Places: ~p~n", [self(), Status#status.places]),
+            loop(Status);
         {update_status, Pid} ->
             Pid ! {status, Status},
             receive
@@ -120,8 +122,11 @@ loop(Status) ->
         {ask_status, Pid} ->
             Pid ! {status, Status},
             loop(Status);
+        {'EXIT', _, positive} ->
+            io:format("~p: Entro in quarantena~n", [self()]),
+            exit(quarantena);
         {'EXIT', _, quarantena} ->
-            io:format("Entro in quarantena~n"),
+            io:format("~p: Entro in quarantena~n", [self()]),
             exit(quarantena)
     end.
 
@@ -131,7 +136,7 @@ utente() ->
     Status = #status{ visiting = -1,
                       places = []},
     process_flag(trap_exit, true),
-                                                %erlang:spawn_link(?MODULE, do_test, [self()]),
+    erlang:spawn_link(?MODULE, do_test, [self()]),
     Pid_observer = erlang:spawn_link(?MODULE, place_observer, [self(), []]),
     erlang:spawn_link(?MODULE, place_manager, [self(), Pid_observer]),
     erlang:spawn_link(?MODULE, perform_visit, [self()]),
