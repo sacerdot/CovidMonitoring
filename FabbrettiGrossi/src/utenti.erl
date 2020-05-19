@@ -152,7 +152,13 @@ sample(L,0,_) -> L;
 sample(L,_,[]) -> L;
 sample(L1, N, L2) ->
     %io:format("Lista = ~p~n", [L2]),
-    X = lists:nth(rand:uniform(length(L2) - 1), L2),
+    X = case length(L2) of
+            1 ->
+                [_X | _] = L2,
+                _X;
+            Length ->
+                lists:nth(rand:uniform(Length-1), L2)
+        end,
     sample(L1 ++ [X], N-1, [Y || Y <- L2, Y/= X]).
 
 sleep(N) ->
