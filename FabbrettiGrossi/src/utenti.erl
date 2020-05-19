@@ -38,23 +38,30 @@ place_observer(Manager, Places) ->
 
 
 do_test(Manager) ->
-    global:send(hospital, {test_me, self()}),
-    receive
-        positive ->
-            io:format("~p: Sono positivo.~n", [self()]),
-            Manager ! {ask_status, self()},
+    case rand:uniform(4) of
+        1 ->
+            Manager ! {debug, yes_test},
+            global:send(hospital, {test_me, self()}),
             receive
-                {status, Status} when Status#status.visiting /= -1 ->
-                    Luogo = Status#status.place_pid,
-                    Luogo ! {end_visit, Status#status.visitor_pid, Status#status.visiting_ref},
-                    exit(positive);
-                {status, _} ->
-                    exit(positive)
+                positive ->
+                    Manager ! {debug, positive_test},
+                    Manager ! {ask_status, self()},
+                    receive
+                        {status, Status} when Status#status.visiting /= -1 ->
+                            Luogo = Status#status.place_pid,
+                            Luogo ! {end_visit, Status#status.visitor_pid, Status#status.visiting_ref},
+                            exit(positive);
+                        {status, _} ->
+                            exit(positive)
+                    end;
+                negative ->
+                    Manager ! {debug, negative_test}
             end;
-        negative ->
-            io:format("~p: Sono negativo.~n", [self()])
+        _ ->
+            Manager ! {debug, no_test},
+            ok
     end,
-    sleep(4),
+    sleep(10),
     do_test(Manager).
 
 perform_visit(Manager) ->
@@ -64,19 +71,18 @@ perform_visit(Manager) ->
 
     case length(Places) > 0 of
         false ->
-            io:format("~p: Non ci sono posti da visitare, dormo.~n", [self()]);
+            Manager ! {debug, no_places};
         true ->
             [Place | _] = sample(1, Places),
             Ref = erlang:make_ref(),
-            io:format("~p: Sto per iniziare una visita ~n", [self()]),
+            Manager ! {debug, begin_visit},
             Place ! {begin_visit, self(), Ref},
-
             update_status(Manager, {update_visit, self(), Ref, 1, Place}),
             Visit_time = rand:uniform(5) + 5,
             spawn(?MODULE, reminder, [self(), Visit_time]),
-            receive_contact(),
+            receive_contact(Manager),
             update_status(Manager, {update_visit, -1, -1, -1, -1}),
-            io:format("~p: Sto per concludere una visita~n", [self()]),
+            Manager ! {debug, end_visit},
             Place ! {end_visit, self(), Ref}
     end,
     sleep_random(3,5),
@@ -84,7 +90,6 @@ perform_visit(Manager) ->
 
 reminder(Pid, Visit_time) ->
     receive after Visit_time*1000 -> Pid ! done_visit end.
-
 
 update_status(Manager, Update) ->
 
@@ -101,18 +106,39 @@ update_status(Manager, Update) ->
                 end,
     Manager ! {status_updated, NewStatus}.
 
-receive_contact() ->
+receive_contact(Manager) ->
     receive
         {contact, Pid} ->
             link(Pid),
-            receive_contact();
+            Manager ! {debug, {received_contact, Pid}},
+            receive_contact(Manager);
         done_visit -> ok
+    end.
+
+debug(Message) ->
+    case Message of
+        no_places ->
+            io:format("~p: Non ci sono posti da visitare, dormo.~n", [self()]);
+        begin_visit ->
+            io:format("~p: Sto per iniziare una visita ~n", [self()]);
+        end_visit ->
+            io:format("~p: Sto per concludere una visita~n", [self()]);
+        negative_test ->
+            io:format("~p: Sono negativo.~n", [self()]);
+        positive_test ->
+            io:format("~p: Sono positivo.~n", [self()]);
+        {received_contact, Pid} ->
+            io:format("~p: Ricevuto contatto da ~p~n", [self(), Pid]);
+        no_test ->
+            io:format("~p: Non mi sono testato~n", [self()]);
+        yes_test ->
+            io:format("~p: Mi sto per testare, incrociamo le dita~n", [self()])
     end.
 
 loop(Status) ->
     receive
-        debug ->
-            io:format("~p: Places: ~p~n", [self(), Status#status.places]),
+        {debug, Message} ->
+            debug(Message),
             loop(Status);
         {update_status, Pid} ->
             Pid ! {status, Status},
@@ -123,6 +149,7 @@ loop(Status) ->
             Pid ! {status, Status},
             loop(Status);
         {'EXIT', _, positive} ->
+            %TODO lo mandiamo il messaggio per uscire dal posto oppure no?
             io:format("~p: Entro in quarantena~n", [self()]),
             exit(quarantena);
         {'EXIT', _, quarantena} ->
@@ -146,7 +173,10 @@ utente() ->
 
 
 start() ->
-    [ spawn(fun utente/0) || _ <- lists:seq(1,1) ].
+    [ spawn(fun utente/0) || _ <- lists:seq(1,10) ].
+
+%-------------- PROTOCOLS --------------%
+
 
 %---------------- UTILS ----------------%
 
