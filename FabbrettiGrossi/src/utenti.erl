@@ -19,7 +19,7 @@ place_manager(Manager, Pid_observer) ->
             NewPlaces = erlang:subtract(AllPlaces, Places),
             PlacesUpdated = sample(3 - length(Places), NewPlaces),
             [ Pid_observer ! {start_monitor, Place_pid} || Place_pid <- PlacesUpdated],
-            update_status(Manager, {update_places, PlacesUpdated})
+            update_status(Manager, {update_places, PlacesUpdated ++ Places})
     end,
     sleep(2),
     place_manager(Manager, Pid_observer).
@@ -39,7 +39,7 @@ place_observer(Manager, Places) ->
 do_test(Manager) ->
     global:send(hospital, {test_me, self()}),
     receive
-        positive -> 
+        positive ->
             io:format("Sono positivo.~n"),
             Manager ! {ask_status, self()},
             receive
