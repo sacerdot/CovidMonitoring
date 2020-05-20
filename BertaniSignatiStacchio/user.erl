@@ -173,7 +173,7 @@ start_loop(SPAWNED_PROCESSES, SERVER_PID) ->
 start() ->
   sleep(2000),
   %mettere link al server
-  io:format("ping result: ~p~n", [net_adm:ping('hospital@macerata.homenet.telecomitalia.it')]),
+  io:format("hospital ping result: ~p~n", [net_adm:ping(list_to_atom("hospital@" ++ net_adm:localhost()))]),
   PLACES_MANAGER = spawn(?MODULE, places_manager, [[]]),
   register(places_manager, PLACES_MANAGER),
   io:format("PLACES MANAGER SPAWNED~p~n", [PLACES_MANAGER]),
