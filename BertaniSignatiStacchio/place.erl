@@ -11,6 +11,8 @@
 
 %% API
 -export([start/0, visits/1, touch/2]).
+-define(DEATH_PROB, 600).
+
 sleep(N) -> receive after N -> ok end.
 
 %-----------Initialization protocol-----------
@@ -18,6 +20,7 @@ start() ->
   sleep(2000),
   link(global:whereis_name(server)),
   global:whereis_name(server) ! {new_place, self()},
+  io:format("SONO VISIT~p~n",[self()]),
   visits([]).
 
 %-----------Visit protocol-----------
@@ -27,11 +30,12 @@ visits(USER_LIST) ->
       io:format("Exit of ~p ~n", [PID]),
       visits([{P, R} || {P, R} <- USER_LIST, P /= PID]);
     {begin_visit, USER_START, REF} ->
-      link(USER_START),
+      monitor(process,USER_START),
       io:format("BEGIN VISIT~p ~n", [USER_START]),
-      V = rand:uniform(100),
-      case (V =< 10) of
+      V = rand:uniform(?DEATH_PROB),
+      case (V =< 1) of
         true ->
+          io:format("SONO MORTO VISIT~p~n",[self()]),
           exit(normal);
         false ->
           spawn(?MODULE, touch, [USER_START, USER_LIST]),
@@ -40,7 +44,7 @@ visits(USER_LIST) ->
     {end_visit, USER_END, REF} ->
       case lists:member({USER_END, REF}, USER_LIST) of
         true ->
-          unlink(USER_END),
+          %demonitor(USER_END),
           visits(USER_LIST -- [{USER_END, REF}]);
         false ->
           visits(USER_LIST)

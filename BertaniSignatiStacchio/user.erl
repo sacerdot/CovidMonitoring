@@ -9,7 +9,7 @@
 -module(user).
 -author("Lorenzo_Stacchio").
 %% API
--export([start/0, start_loop/2, places_manager/1, get_places/3, test_manager/0, simple_place/1, visit_manager/2]).
+-export([start/0, start_loop/2, places_manager/1, get_places/3, test_manager/0, visit_manager/2]).
 -define(TIMEOUT_PLACE_MANAGER, 10000).
 -define(TIMEOUT_TEST_MANAGER, 30000).
 % number of places a user keep track
@@ -24,27 +24,6 @@ flush() ->
   end.
 
 sleep(N) -> receive after N -> ok end.
-
-
-%-----------SERVER, PLACES SIMULATED-----------
-% the parameter N is for distinguish between first and successive recursion
-simple_place(N) ->
-  if %successive recursion case
-    N == 1 ->
-      % send a message to the server adding a new place
-      global:whereis_name(server) ! {add_place, self()}, simple_place(0);
-    true ->
-      sleep(100),
-      % probability of 0,1 % to die for place
-      C = rand:uniform(10000),
-      case (C < 30) of
-        true -> %io:format("C in random dead~p~n", [C]),
-          io:format("Death of ~p~n", [self()]),
-          % update server and place manager
-          exit(luogo_morto);
-        false -> simple_place(0)
-      end
-  end.
 
 %----------------------USER----------------------
 %-----------Topology maintenance protocol-----------
@@ -92,7 +71,6 @@ places_manager(USER_PLACES_LIST) ->
     true ->
       ok;
     false ->
-      io:format("QUANTI CAZZO SONO~p~p~n", [length(USER_PLACES_LIST), ?USER_PLACES_NUMBER]),
       exit(PID_GETTER, kill),
       sleep(?TIMEOUT_PLACE_MANAGER)
   end,
@@ -104,14 +82,14 @@ places_manager(USER_PLACES_LIST) ->
         true -> %exit(PID_GETTER, kill),
           io:format("Post mortem PLACE MANAGER2 ~p,~p,~p,~n", [PID, USER_PLACES_LIST--[PID], length(USER_PLACES_LIST--[PID])]),
           % clear the message queue
-          flush(),
+          %TODO: INSERIRE FUNZIONE PER ELIMINARE MESSAGGI VECCHI NEW PLACES
           places_manager(USER_PLACES_LIST--[PID]);
         false -> exit(PID_GETTER, kill), places_manager(USER_PLACES_LIST)
       end;
         %end;
     {new_places, NEW_PLACES} -> % message received from the spawned process that asked the new places
       io:format("PLACES MANTAINER UPDATED~p,~p,~n", [NEW_PLACES, length(NEW_PLACES)]),
-      [link(PID) || PID <- NEW_PLACES],% create a link to all this new places
+      [monitor(process,PID) || PID <- NEW_PLACES],% create a link to all this new places
       places_manager(NEW_PLACES)
   end.
 
@@ -123,7 +101,7 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
     {'EXIT', PID, Reason} ->
       case lists:member(PID, USER_PLACES) of % a user place died
         true -> io:format("Post mortem in VISIT ~p,~p,~p, ~n", [PID, USER_PLACES--[PID], Reason]),
-          flush(),
+          %TODO: INSERIRE FUNZIONE PER ELIMINARE MESSAGGI VECCHI NEW PLACES
           visit_manager(USER_PLACES--[PID], CONTACT_LIST);
         false -> %if false, the PID could only identify a Place or another user, because of the link made only to the Server and Places.
           case lists:member(PID, CONTACT_LIST) of
@@ -134,8 +112,8 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
           end
       end;
     {new_places, UL} ->
-      io:format("VISIT MANAGER Update~p ~n", [UL]),
-      [link(PID) || PID <- UL],
+      io:format("VISIT MANAGER Update RIPETO1~p ~n", [UL]),
+      [monitor(process,PID) || PID <- UL],
       visit_manager(UL, CONTACT_LIST);
     {contact, PID_TOUCH} -> link(PID_TOUCH), visit_manager(USER_PLACES, CONTACT_LIST ++ PID_TOUCH)
   after 0 ->
@@ -145,8 +123,8 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
     true ->
       receive
         {new_places, UL2} ->
-          io:format("VISIT MANAGER Update~p ~n", [UL2]),
-          [link(PID) || PID <- UL2],
+          io:format("VISIT MANAGER Update RIPETO2~p ~n", [UL2]),
+          [monitor(process,PID) || PID <- UL2],
           visit_manager(UL2, CONTACT_LIST)
       end;
     false ->

@@ -18,8 +18,6 @@ start_loop(PLACES)->
   sleep(1000),
   io:format("set flag to trap exit ~p~n",[PLACES]),
   process_flag(trap_exit, true),
-  %io:format("set flag to trap exit ~n"),
-  %io:format("created list for PIDs ~n"),
   receive
   % remove from places list dead place
     {'EXIT',PID_EXIT,_} ->
