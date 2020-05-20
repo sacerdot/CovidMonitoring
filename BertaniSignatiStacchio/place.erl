@@ -30,7 +30,6 @@ visits(USER_LIST) ->
       io:format("Exit of ~p ~n", [PID]),
       visits([{P, R} || {P, R} <- USER_LIST, P /= PID]);
     {begin_visit, USER_START, REF} ->
-      monitor(process,USER_START),
       io:format("BEGIN VISIT~p ~n", [USER_START]),
       V = rand:uniform(?DEATH_PROB),
       case (V =< 1) of
@@ -44,7 +43,6 @@ visits(USER_LIST) ->
     {end_visit, USER_END, REF} ->
       case lists:member({USER_END, REF}, USER_LIST) of
         true ->
-          %demonitor(USER_END),
           visits(USER_LIST -- [{USER_END, REF}]);
         false ->
           visits(USER_LIST)

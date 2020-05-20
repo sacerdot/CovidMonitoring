@@ -20,6 +20,7 @@ launch () ->
   spawn(fun()->os:cmd('werl -name place -s place start') end),
   spawn(fun()->os:cmd('werl -name place2 -s place start') end),
   spawn(fun()->os:cmd('werl -name place3 -s place start') end),
+  spawn(fun()->os:cmd('werl -name place4 -s place start') end),
   spawn(fun()->os:cmd('werl -name user -s user start') end).
 
 
