@@ -1,7 +1,7 @@
 # CovidMonitoring
 A small project in Erlang to pass the exam of Emerging Programming Paradigms @ University of Bologna
 
-## VERSIONE: 0.5
+## VERSIONE: 0.6
 
 ## SCOPO DEL PROGETTO:
 
@@ -106,6 +106,9 @@ tracciamento dei contatti fra portatori del virus.
 
       2) in caso di risposta positive l'utente stampa "sono positivo" e termina
          con exit(positive); altrimenti stampa "sono negativo"
+
+      3) nel caso in cui l'utente stia visitando un luogo, prima di terminare
+         deve uscire dal luogo
 
 - l'ospedale implementa i seguenti protocolli
 
