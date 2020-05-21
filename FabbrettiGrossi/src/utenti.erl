@@ -45,24 +45,27 @@ do_test(Manager) ->
             receive
                 positive ->
                     Manager ! {debug, positive_test},
-                    Manager ! {ask_status, self()},
-                    receive
-                        {status, Status} when Status#status.visiting /= -1 ->
-                            Luogo = Status#status.place_pid,
-                            Luogo ! {end_visit, Status#status.visitor_pid, Status#status.visiting_ref},
-                            exit(positive);
-                        {status, _} ->
-                            exit(positive)
-                    end;
+                    perform_exit(Manager, positive);
                 negative ->
                     Manager ! {debug, negative_test}
             end;
         _ ->
-            Manager ! {debug, no_test},
-            ok
+            Manager ! {debug, no_test}
     end,
     sleep(10),
     do_test(Manager).
+
+perform_exit(Manager, Reason) ->
+    Manager ! {ask_status, self()},
+    receive
+        {status, Status} when Status#status.visiting /= -1 ->
+            Luogo = Status#status.place_pid,
+            Luogo ! {end_visit, Status#status.visitor_pid, Status#status.visiting_ref},
+            exit(Reason);
+        {status, _} ->
+            exit(Reason)
+    end.
+
 
 perform_visit(Manager) ->
     Manager ! {ask_status, self()},
@@ -151,10 +154,10 @@ loop(Status) ->
         {'EXIT', _, positive} ->
             %TODO lo mandiamo il messaggio per uscire dal posto oppure no?
             io:format("~p: Entro in quarantena~n", [self()]),
-            exit(quarantena);
+            perform_exit(self(), quarantena);
         {'EXIT', _, quarantena} ->
             io:format("~p: Entro in quarantena~n", [self()]),
-            exit(quarantena)
+            perform_exit(self(), quarantena)
     end.
 
 
