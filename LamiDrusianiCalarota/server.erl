@@ -17,6 +17,3 @@ topologia(Luoghi) ->
 		{'EXIT', Pid, normal} -> io:format("Chiusura luogo ~p~n",[Pid]), topologia(Luoghi--[Pid]);
 		{get_places, Pid} -> io:format("Richiesta luoghi da ~p~n",[Pid]), Pid ! {places, Luoghi}, topologia(Luoghi)
 	end.
-
-
-	--[Pid]
