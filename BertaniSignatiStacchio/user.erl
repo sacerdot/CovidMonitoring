@@ -11,7 +11,7 @@
 %% API
 -export([start/0, start_loop/2, places_manager/1, get_places/3, test_manager/0, visit_manager/2]).
 -define(TIMEOUT_PLACE_MANAGER, 10000).
--define(TIMEOUT_TEST_MANAGER, 10000).
+-define(TIMEOUT_TEST_MANAGER, 5000).
 % number of places a user keep track
 -define(USER_PLACES_NUMBER, 3).
 
@@ -73,7 +73,7 @@ places_manager(USER_PLACES_LIST) ->
   end,
   % spawn a process to asynchronously retrieve up to {USER_PLACES_NUMBER} places
   receive
-    {'DOWN', _, process, PID, _}-> % a place have died
+    {'DOWN', _, process, PID, _} -> % a place have died
       case ((length(USER_PLACES_LIST) > 0) and lists:member(PID, USER_PLACES_LIST)) of
         true -> %exit(PID_GETTER, kill),
           io:format("Post mortem PLACE MANAGER2 ~p,~p,~p,~n", [PID, USER_PLACES_LIST--[PID], length(USER_PLACES_LIST--[PID])]),
@@ -82,19 +82,25 @@ places_manager(USER_PLACES_LIST) ->
           places_manager(USER_PLACES_LIST--[PID]);
         false -> places_manager(USER_PLACES_LIST)
       end;
-        %end;
-        {new_places, NEW_PLACES} -> % message received from the spawned process that asked the new places
-          io:format("PLACES MANTAINER UPDATED~p,~p,~n", [NEW_PLACES, length(NEW_PLACES)]),
-          [monitor(process,PID) || PID <- NEW_PLACES],% create a link to all this new places
-          places_manager(NEW_PLACES)
-      end.
+  %end;
+    {new_places, NEW_PLACES} -> % message received from the spawned process that asked the new places
+      io:format("PLACES MANTAINER UPDATED~p,~p,~n", [NEW_PLACES, length(NEW_PLACES)]),
+      [monitor(process, PID) || PID <- NEW_PLACES],% create a link to all this new places
+      places_manager(NEW_PLACES)
+  end.
 
 %-----------Visit protocol-----------
 visit_manager(USER_PLACES, CONTACT_LIST) ->
   process_flag(trap_exit, true),
   % Not blocking receive to get places updates (if any)
   receive
-    {'DOWN', _, process, PID, _}->
+    {'EXIT', PID, reason} ->
+      %TODO: fix death of another covid victim
+      case lists:member(PID, CONTACT_LIST) of
+        true -> exit(quarantena);
+        false -> ok
+      end;
+    {'DOWN', _, process, PID, _} ->
       case lists:member(PID, USER_PLACES) of % a user place died
         true -> io:format("Post mortem in VISIT ~p,~p, ~n", [PID, USER_PLACES--[PID]]),
           flush_new_places(),
@@ -109,9 +115,10 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
       end;
     {new_places, UL} ->
       io:format("VISIT MANAGER Update RIPETO~p ~n", [UL]),
-      [monitor(process,PID) || PID <- UL],
+      [monitor(process, PID) || PID <- UL],
       visit_manager(UL, CONTACT_LIST);
-    {contact, PID_TOUCH} -> link(PID_TOUCH), visit_manager(USER_PLACES, CONTACT_LIST ++ PID_TOUCH)
+    {contact, PID_TOUCH} -> link(PID_TOUCH),
+      visit_manager(USER_PLACES, CONTACT_LIST ++ [PID_TOUCH])
   after 0 ->
     ok
   end,
