@@ -1,5 +1,5 @@
 -module(utenti).
--export([start/0, loop/1, do_test/1, perform_visit/1, reminder/2, place_manager/2, place_observer/2, sleep/1, sleep_random/2, sample/2]).
+-export([start/0, do_test/1, perform_visit/1, reminder/2, place_manager/2, place_observer/2, sleep/1, sleep_random/2, sample/2]).
 
 -record(status,{visiting = -1,
 		visitor_pid = -1,
@@ -108,6 +108,7 @@ update_status(Manager, Update) ->
                         io:format("Tupla non prevista: ~p~n", [Other]),
                         Status
                 end,
+
     Manager ! {status_updated, NewStatus}.
 
 receive_contact(Manager) ->
@@ -129,21 +130,21 @@ debug({received_contact, Pid}) -> io:format("~p: Ricevuto contatto da ~p~n", [se
 debug(no_test) -> io:format("~p: Non mi sono testato~n", [self()]);
 debug(yes_test) -> io:format("~p: Mi sto per testare, incrociamo le dita~n", [self()]).
 
-loop(Status) ->
+loop(Status, Server) ->
     receive
         {debug, Message} ->
 %            debug(Message),
-            loop(Status);
+            loop(Status, Server);
 
         {update_status, Pid} ->
             Pid ! {status, Status},
             receive
-                {status_updated, NewStatus} -> loop(NewStatus)
+                {status_updated, NewStatus} -> loop(NewStatus, Server)
             end;
 
         {ask_status, Pid} ->
             Pid ! {status, Status},
-            loop(Status);
+            loop(Status, Server);
 
         {'EXIT', _, positive} ->
             io:format("~p: Entro in quarantena~n", [self()]),
@@ -153,9 +154,12 @@ loop(Status) ->
             io:format("~p: Entro in quarantena~n", [self()]),
             perform_exit(Status, quarantena);
 
+       {'EXIT', Server, _} ->
+            io:format("Server crash~n"),
+            exit(server_crash);
         Other ->
             io:format("Messaggio inaspettato: ~p~n", [Other]),
-            loop(Status)
+            loop(Status, Server)
     end.
 
 
@@ -166,12 +170,12 @@ utente() ->
 
     Server = global:whereis_name(server),
     erlang:link(Server),
-
+    process_flag(trap_exit, true),
     erlang:spawn_link(?MODULE, do_test, [self()]),
     Pid_observer = erlang:spawn_link(?MODULE, place_observer, [self(), []]),
     erlang:spawn_link(?MODULE, place_manager, [self(), Pid_observer]),
     erlang:spawn_link(?MODULE, perform_visit, [self()]),
-    loop(Status).
+    loop(Status, Server).
 
 
 start() ->

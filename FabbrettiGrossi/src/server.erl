@@ -12,6 +12,14 @@ update_places(PIDLIST) ->
             io:format("Sto per rimuovere ~p dalla lista dei luoghi~n", [Pid]),
             update_places(PIDLIST -- [Pid]);
 
+        {'EXIT', Pid, positive} ->
+            io:format("~p: esce perche' positivo al test~n", [Pid]),
+            update_places(PIDLIST);
+
+        {'EXIT', Pid, quarantena} ->
+            io:format("~p: esce perche' va in quarantena~n", [Pid]),
+            update_places(PIDLIST);
+
         {'EXIT', Pid, Reason} ->
             io:format("~p exit because ~p~n", [Pid, Reason]),
             update_places(PIDLIST -- [Pid]);
