@@ -1,6 +1,6 @@
 -module(utenti).
--export([main/0, list_handler/2, check_list/2, visit_place/2, trace_contact/1, actorDispatcher/0, get_places_update/2, require_test/2, utente/0, start/0]).
--import(utils, [sleep/1, set_subtract/2, take_random/2, check_service/1, make_probability/1, flush/0]).
+-export([main/0, list_handler/2, check_list/2, visit_place/2, actorDispatcher/0, require_test/2, utente/0, start/0]).
+-import(utils, [sleep/1, set_subtract/2, take_random/2, check_service/1, make_probability/1, flush/1]).
 
 
 %%%%%%%%%%%%%%%%%%%% PROTOCOLLO DI MANTENIMENTO DELLA TOPOLOGIA (a) %%%%%%%%%%%%%%%%%%%%
@@ -38,7 +38,7 @@ loop(ContactTrace, RequiredTest, MergList) ->
     exit(R);
     Msg ->
       % Check unexpected message from other actors
-      io:format("[Dispatcher] ~p  ~p~n", [self(), Msg])
+      io:format("[Dispatcher] ~p Unexpected message ~p~n", [self(), Msg])
   end,
   loop(ContactTrace, RequiredTest, MergList).
 
@@ -46,7 +46,7 @@ loop(ContactTrace, RequiredTest, MergList) ->
 list_handler(PidDispatcher, L) ->
   receive
     {get_list, Pid} ->
-      Pid ! L,
+      Pid ! {list, L},
       list_handler(PidDispatcher, L);
     {update_list, L1} ->
       % monitor all places in L1
@@ -55,36 +55,27 @@ list_handler(PidDispatcher, L) ->
   % messages from a dead place (DOWN)
     {_, _, process, Pid, _} ->
       global:send(server, {get_places, PidDispatcher}),
-      list_handler(PidDispatcher, set_subtract(L,[Pid]));
-    Msg ->
-      % Check unexpected message from other actors
-      io:format("[User] ~p Messaggio non gestito ~p~n", [self(), Msg]),
-      list_handler(PidDispatcher, L)
+      list_handler(PidDispatcher, set_subtract(L, [Pid]))
   end.
 
-get_places_update(PidDispatcher, ActorList) ->
-  receive
-    {places, PIDLIST} ->
-      ActorList ! {get_list, self()},
-      receive
-        L ->
-          R = set_subtract(PIDLIST, L),
-          case length(L) of
-            0 -> ActorList ! {update_list, take_random(R, 3)};
-            1 -> ActorList ! {update_list, take_random(R, 2)};
-            2 -> ActorList ! {update_list, take_random(R, 1)};
-            _ -> ok
-          end
-      end
-  end,
-  get_places_update(PidDispatcher, ActorList).
+handle_exit_messages(R, Name, PidDispatcher, Pid) ->
+  case R of
+    quarantine ->
+      io:format("[~p] ~p entro in quaratena ~n", [Name, PidDispatcher]),
+      exit(quarantine);
+    positive ->
+      io:format("[~p] ~p entro in quaratena ~n", [Name, PidDispatcher]),
+      exit(quarantine);
+    _ ->
+      io:format("[~p] ~p mex non gestito: ~p da ~p ~n", [Name, PidDispatcher, R, Pid]),
+      exit(R)
+  end.
 
 %%%%%%%%%%%%%%%%%%%%% PROTOCOLLO DI MANTENIMENTO DELLA TOPOLOGIA (c, d) %%%%%%%%%%%%%%%%%%%%
 check_list(ActorList, PidDispatcher) ->
   ActorList ! {get_list, self()},
   receive
-    L ->
-      io:format("Places in ~p check_list: ~p~n", [PidDispatcher, L]),
+    {list, L} ->
       case length(L) >= 3 of
         true -> ok;
         false ->
@@ -98,7 +89,9 @@ check_list(ActorList, PidDispatcher) ->
 visit_places(ActorList, PidDispatcher) ->
   ActorList ! {get_list, self()},
   receive
-    L ->
+    {'EXIT', Pid, R} ->
+      handle_exit_messages(R, "VisitPlace", PidDispatcher, Pid);
+    {list, L} ->
       case length(L) >= 1 of
         true ->
           REF = make_ref(),
@@ -112,35 +105,6 @@ visit_places(ActorList, PidDispatcher) ->
       visit_place(ActorList, PidDispatcher)
   end.
 
-%%%%%%%%%%%%%%%%%%%% PROTOCOLLO DI RILEVAMENTO DEI CONTATTI (a,b) %%%%%%%%%%%%%%%%%%%%
-trace_contact(PidDispatcher) ->
-  process_flag(trap_exit, true),
-  trace_contact_loop(PidDispatcher).
-trace_contact_loop(PidDispatcher) ->
-  receive
-    {contact, PID} ->
-      %let it fail
-      %try
-      link(PID),
-      io:format("[User] ~p linked to ~p~n", [PidDispatcher, PID]),
-      %catch X ->
-      %  io:format("[User] ~p unable to link to ~p error ~p~n", [PidDispatcher, PID, X])
-      %end,
-      trace_contact_loop(PidDispatcher);
-    {'EXIT', _, R} ->
-      case R of
-        quarantine ->
-          io:format("[User] ~p entro in quaratena ~n", [PidDispatcher]),
-          exit(quarantine);
-        positive ->
-          io:format("[User] ~p entro in quaratena ~n", [PidDispatcher]),
-          exit(quarantine)
-      end;
-    Msg ->
-      % Check unexpected message from other actors
-      io:format("[User] ~p Messaggio non gestito ~p~n", [self(), Msg])
-  end.
-
 %%%%%%%%%%%%%%%%%%%% PROTOCOLLO DI TEST (a,b) %%%%%%%%%%%%%%%%%%%%
 require_test(PidDispatcher, Probability) ->
   sleep(30000),
@@ -149,6 +113,8 @@ require_test(PidDispatcher, Probability) ->
       PidOspedale = check_service(ospedale),
       PidOspedale ! {test_me, PidDispatcher},
       receive
+        {'EXIT', Pid, R} ->
+          handle_exit_messages(R, "RequireTest", PidDispatcher, Pid);
         positive ->
           io:format("[User] ~p sono positivo ~n", [PidDispatcher]),
           exit(positive);
@@ -163,4 +129,4 @@ utente() ->
   main().
 
 start() ->
-  [spawn(fun utente/0) || _ <- lists:seq(1, 10)].
+  [spawn(fun utente/0) || _ <- lists:seq(1, 1000)].

@@ -1,5 +1,5 @@
 -module(utils).
--export([sleep/1, set_subtract/2, take_random/2, make_probability/1, check_service/1, flush/0]).
+-export([sleep/1, set_subtract/2, take_random/2, make_probability/1, check_service/1, flush/1]).
 
 sleep(T) ->
   receive after T -> ok end.
@@ -15,9 +15,9 @@ take_random(L, N) ->
   R = take_random(set_subtract(L, [E]), N - 1),
   [E | R].
 
-flush() ->
+flush(X) ->
   receive
-    _ -> flush()
+    X -> flush(X)
   after
     0 -> ok
   end.
