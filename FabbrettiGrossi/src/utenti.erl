@@ -118,25 +118,14 @@ receive_contact(Manager) ->
         done_visit -> ok
     end.
 
-debug(Message) ->
-    case Message of
-        no_places ->
-            io:format("~p: Non ci sono posti da visitare, dormo.~n", [self()]);
-        begin_visit ->
-            io:format("~p: Sto per iniziare una visita ~n", [self()]);
-        end_visit ->
-            io:format("~p: Sto per concludere una visita~n", [self()]);
-        negative_test ->
-            io:format("~p: Sono negativo.~n", [self()]);
-        positive_test ->
-            io:format("~p: Sono positivo.~n", [self()]);
-        {received_contact, Pid} ->
-            io:format("~p: Ricevuto contatto da ~p~n", [self(), Pid]);
-        no_test ->
-            io:format("~p: Non mi sono testato~n", [self()]);
-        yes_test ->
-            io:format("~p: Mi sto per testare, incrociamo le dita~n", [self()])
-    end.
+debug(no_places) -> io:format("~p: Non ci sono posti da visitare, dormo.~n", [self()]);
+debug(begin_visit) -> io:format("~p: Sto per iniziare una visita ~n", [self()]);
+debug(end_visit) -> io:format("~p: Sto per concludere una visita~n", [self()]);
+debug(negative_test) -> io:format("~p: Sono negativo.~n", [self()]);
+debug(positive_test) -> io:format("~p: Sono positivo.~n", [self()]);
+debug({received_contact, Pid}) -> io:format("~p: Ricevuto contatto da ~p~n", [self(), Pid]);
+debug(no_test) -> io:format("~p: Non mi sono testato~n", [self()]);
+debug(yes_test) -> io:format("~p: Mi sto per testare, incrociamo le dita~n", [self()]).
 
 loop(Status) ->
     receive
