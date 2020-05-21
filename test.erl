@@ -23,5 +23,5 @@ test() ->
     spawn(server, server_init, []), %la server_init fa ache lei la spown del server, forse qui basta fare la chiamata alla server init
     util:sleep(1000),
     hospital:hospital_init(),
-    create_places(10),
+    create_places(4),
     create_users(10).

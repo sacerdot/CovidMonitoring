@@ -17,17 +17,16 @@ server(Places) ->
 
         {'DOWN', _ , process, Pid, Reason } -> %{'DOWN', Reference, process, Pid, Reason} ->
             io:format("~p e' morto e questo è il messaggio di monitor : ~p ~n", [Pid, Reason]),
+            io:format("~p luoghi rimanenti ~n", [length(Places) - 1]),
+
             server(Places -- [Pid]);
 
         {'EXIT',Pid, Reason} -> %il trattino sarebbe Pid
             io:format("EXIT in server Pid ~p Reason ~p~n", [Pid, Reason]),
             case Reason of
-                positive -> ok;
-                quarantena -> ok;
-                normal -> ok;
+                X when X =:= 'positive'; X =:= 'normal';  X =:= 'quarantena' -> ok;
                 _ -> exit(Reason) %nel caso in cui qualuno a cui siamo linkati termini per un'altra ragione, anche noi terminiamo con la stessa reason
             end,
-            io:format("Superato~n",[]),
             server(Places)
     end.
 
