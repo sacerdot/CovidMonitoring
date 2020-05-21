@@ -1,41 +1,27 @@
 -module(luoghi).
--export([start/0, place_manager/1, contact_manager/1]).
+-export([start/0]).
 
-
-place_manager(Manager) ->
-    receive
-        new_visitor ->
-            Result = rand:uniform(10),
-            case Result of
-                10 ->
-                    %DEBUG
-                    Manager ! {debug, place_close_normally},
-                    exit(normal);   % close place
-                _ ->
-                    place_manager(Manager)  % keep open
-            end
+place_manager() ->
+    Result = rand:uniform(10),
+    case Result of
+        10 ->
+            exit(normal);   % close place
+        _ ->
+            ok
     end.
 
-contact(_, _, []) -> ok;
-contact(Manager, NEW_VISITOR, [VISITOR | OTHER_VISITORS]) ->
+find_contact(_, []) -> ok;
+find_contact(NEW_VISITOR, [VISITOR | OTHER_VISITORS]) ->
     Result = rand:uniform(4),
     case Result of
         4 ->
             {_, PID_VISITOR} = VISITOR,
             NEW_VISITOR ! {contact, PID_VISITOR},
             PID_VISITOR ! {contact, NEW_VISITOR},
-            contact(Manager, NEW_VISITOR, OTHER_VISITORS);
+            find_contact(NEW_VISITOR, OTHER_VISITORS);
 
-        _ -> contact(Manager, NEW_VISITOR, OTHER_VISITORS)
+        _ -> find_contact(NEW_VISITOR, OTHER_VISITORS)
   end.
-
-
-contact_manager(Manager) ->
-    receive
-        {find_contacts, NEW_VISITOR, VISITORS_LIST} ->
-            contact(Manager, NEW_VISITOR, VISITORS_LIST)
-    end,
-  contact_manager(Manager).
 
 
 debug({contact, Pid1, Pid2}) ->
@@ -47,41 +33,34 @@ debug({end_visit, Pid, Visitors}) ->
 debug({begin_visit, Pid, Visitors}) ->
     VisitorList = [ L || {_, L} <- Visitors],
     io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorList ++ [Pid]]),
-    io:format("~p: visitatore ~p ha iniziato la visita~n", [self(), Pid]);
-debug(place_close_normally) ->
-    io:format("~p: chiude normalmente dopo una visita di un utente.~n", [self()]);
+    io:format("~p: visitatore ~p ha iniziato la visita~n", [self(), Pid]).
 
 
-update_visitors(VISITORS_LIST, PID_MANAGER) ->
+
+update_visitors(VISITORS_LIST) ->
     receive
         {debug, Message} ->
             debug(Message),
-            update_visitors(VISITORS_LIST, PID_MANAGER);
-        {'DOWN',_, process, _, normal} ->
-            exit(normal);
-            % VISIT PROTOCOL/1: begin visit
+            update_visitors(VISITORS_LIST);
+
         {begin_visit, PID_VISITATORE, REF} ->
             %DEBUG
             self() ! {debug, {begin_visit, PID_VISITATORE, VISITORS_LIST}},
-            % get pid managers
-            {pid_manager, CM_pid, PM_pid} = PID_MANAGER,
+
             % CONTACT PROTOCOL
-            CM_pid ! {find_contacts, PID_VISITATORE, VISITORS_LIST},
-                                                % LIFE CYCLE
-            PM_pid ! new_visitor,
+            find_contact(PID_VISITATORE, VISITORS_LIST),
 
-            % notify begin visit
-            update_visitors([{REF, PID_VISITATORE} | VISITORS_LIST], PID_MANAGER);
+            % LIFE CYCLE
+            place_manager(),
+            update_visitors([{REF, PID_VISITATORE} | VISITORS_LIST]);
 
-            % VISIT PROTOCOL/2: end visit
         {end_visit, PID_VISITATORE, REF} ->
-        %DEBUG
             self() ! {debug, {end_visit, PID_VISITATORE, VISITORS_LIST}},
-            % notify end visit
-            update_visitors(VISITORS_LIST -- [{REF, PID_VISITATORE}], PID_MANAGER);
+            update_visitors(VISITORS_LIST -- [{REF, PID_VISITATORE}]);
+
         Other ->
             io:format("Messaggio inatteso: ~p~n", [Other]),
-            update_visitors(VISITORS_LIST, PID_MANAGER)
+            update_visitors(VISITORS_LIST)
   end.
 
 
@@ -92,12 +71,8 @@ luogo() ->
   link(Server),
   % INIT PROTOCOL/2: notify server
   Server ! {new_place, self()},
-  % contact manager
-  {CM_pid, _} = spawn_monitor(?MODULE, contact_manager, [self()]),
-  % place manager
-  {PM_pid, _} = spawn_monitor(?MODULE, place_manager, [self()]),
   % update visitors
-  update_visitors([],{pid_manager, CM_pid, PM_pid}).
+  update_visitors([]).
 
 
 start() ->
