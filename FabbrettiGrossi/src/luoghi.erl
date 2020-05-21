@@ -37,21 +37,19 @@ contact_manager(Manager) ->
     end,
   contact_manager(Manager).
 
-debug(Message) ->
-    case Message of
-        {contact, Pid1, Pid2} ->
-            io:format("~p: Contatto tra ~p e ~p~n", [self(), Pid1, Pid2]);
-        place_close_normally ->
-            io:format("~p: chiude normalmente dopo una visita di un utente.~n", [self()]);
-        {begin_visit, Pid, Visitors} ->
-            VisitorList = [ L || {_, L} <- Visitors],
-            io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorList ++ [Pid]]),
-            io:format("~p: visitatore ~p ha iniziato la visita~n", [self(), Pid]);
-        {end_visit, Pid, Visitors} ->
-            VisitorList = [ L || {_, L} <- Visitors],
-            io:format("~p: visitatore ~p ha terminato la visita ~n", [self(), Pid]),
-            io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorList -- [Pid]])
-        end.
+
+debug({contact, Pid1, Pid2}) ->
+    io:format("~p: Contatto tra ~p e ~p~n", [self(), Pid1, Pid2]);
+debug({end_visit, Pid, Visitors}) ->
+    VisitorList = [ L || {_, L} <- Visitors],
+    io:format("~p: visitatore ~p ha terminato la visita ~n", [self(), Pid]),
+    io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorList -- [Pid]]);
+debug({begin_visit, Pid, Visitors}) ->
+    VisitorList = [ L || {_, L} <- Visitors],
+    io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorList ++ [Pid]]),
+    io:format("~p: visitatore ~p ha iniziato la visita~n", [self(), Pid]);
+debug(place_close_normally) ->
+    io:format("~p: chiude normalmente dopo una visita di un utente.~n", [self()]);
 
 
 update_visitors(VISITORS_LIST, PID_MANAGER) ->
