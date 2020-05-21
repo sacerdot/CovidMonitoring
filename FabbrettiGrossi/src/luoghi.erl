@@ -80,7 +80,10 @@ update_visitors(VISITORS_LIST, PID_MANAGER) ->
         %DEBUG
             self() ! {debug, {end_visit, PID_VISITATORE, VISITORS_LIST}},
             % notify end visit
-            update_visitors(VISITORS_LIST -- [{REF, PID_VISITATORE}], PID_MANAGER)
+            update_visitors(VISITORS_LIST -- [{REF, PID_VISITATORE}], PID_MANAGER);
+        Other ->
+            io:format("Messaggio inatteso: ~p~n", [Other]),
+            update_visitors(VISITORS_LIST, PID_MANAGER)
   end.
 
 

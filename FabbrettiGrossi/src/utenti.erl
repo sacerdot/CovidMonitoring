@@ -36,7 +36,6 @@ place_observer(Manager, Places) ->
             place_observer(Manager, NewPlaces)
     end.
 
-
 do_test(Manager) ->
     case rand:uniform(4) of
         1 ->
@@ -65,7 +64,6 @@ perform_exit(Manager, Reason) ->
         {status, _} ->
             exit(Reason)
     end.
-
 
 perform_visit(Manager) ->
     Manager ! {ask_status, self()},
@@ -146,7 +144,10 @@ loop(Status) ->
             perform_exit(self(), quarantena);
         {'EXIT', _, quarantena} ->
             io:format("~p: Entro in quarantena~n", [self()]),
-            perform_exit(self(), quarantena)
+            perform_exit(self(), quarantena);
+        Other ->
+            io:format("Messaggio inaspettato: ~p~n", [Other]),
+            loop(Status)
     end.
 
 

@@ -19,6 +19,9 @@ update_places(PIDLIST) ->
             % TOPOLOGY PROTOCOL
         {get_places, PID} ->
             PID ! {places, PIDLIST},
+            update_places(PIDLIST);
+        Other ->
+            io:format("Messaggio inaspettato: ~p~n", [Other]),
             update_places(PIDLIST)
   end.
 
