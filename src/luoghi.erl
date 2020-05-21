@@ -1,8 +1,8 @@
 -module(luoghi).
 -export([start/0, luogo/0, init_luogo/1, visit_place/2]).
--import(utils, [sleep/1, set_subtract/2, make_probability/1, check_service/1]).
+-import(utils, [sleep/1, set_subtract/2, make_probability/1, check_service/1, flush/0]).
 
-% PROTOCOLLO DI INIZIALIZZAZIONE
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PROTOCOLLO DI INIZIALIZZAZIONE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init_luogo(Prob) ->
   PidServer = check_service(server),
   PidServer ! {ciao, da, luogo, self()},
@@ -12,12 +12,12 @@ init_luogo(Prob) ->
   visit_place([], Prob).
 
 get_probs() ->
-  Probs = #{contact_tracing => make_probability(25), check_for_closing => make_probability(10)},
+  Probs = #{contact_tracing => make_probability(80), check_for_closing => make_probability(10)},
   fun(X) ->
     maps:get(X, Probs)
   end.
 
-% PROTOCOLLO DI VISITA DEI LUOGHI
+%%%%%%%%%%%%%%%%%%%%%%%%%% PROTOCOLLO DI VISITA DEI LUOGHI %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 visit_place(L, Probs) ->
   receive
     {begin_visit, PID, Ref} ->
@@ -37,16 +37,18 @@ visit_place(L, Probs) ->
       visit_place(NL, Probs)
   end.
 
-% PROTOCOLLO DI RILEVAMENTO DEI CONTATTI
+%%%%%%%%%%%%%%%%%%%%%%%%% PROTOCOLLO DI RILEVAMENTO DEI CONTATTI %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 contact_tracing(_, [], _) -> ok;
 contact_tracing(NewUser, [PidOldUser | T], Prob) ->
   case Prob() of
-    1 -> NewUser ! {contact, PidOldUser};
+    1 ->
+      NewUser ! {contact, PidOldUser},
+      io:format("Contact from ~p to ~p", [NewUser, PidOldUser]);
     _ -> ok
   end,
   contact_tracing(NewUser, T, Prob).
 
-% CICLO DI VITA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CICLO DI VITA %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 check_for_closing(Prob) ->
   case Prob() of
     1 -> exit(normal);
