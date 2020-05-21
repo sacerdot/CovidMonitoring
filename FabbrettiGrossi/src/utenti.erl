@@ -11,7 +11,7 @@ place_manager(Manager, Pid_observer) ->
     Manager ! {ask_status, self()},
     Status = receive {status, RStatus} -> RStatus end,
     Places = Status#status.places,
-    Manager ! debug,
+    Manager ! {debug, {places_list, Places}},
     case length(Places) < 3 of
         false -> ok;
         true ->
@@ -44,7 +44,7 @@ do_test(Manager) ->
             receive
                 positive ->
                     Manager ! {debug, positive_test},
-                    perform_exit(Manager, positive);
+                    check_and_exit(Manager, positive);
                 negative ->
                     Manager ! {debug, negative_test}
             end;
@@ -54,16 +54,19 @@ do_test(Manager) ->
     sleep(10),
     do_test(Manager).
 
-perform_exit(Manager, Reason) ->
+check_and_exit(Manager, Reason) ->
     Manager ! {ask_status, self()},
     receive
-        {status, Status} when Status#status.visiting /= -1 ->
-            Luogo = Status#status.place_pid,
-            Luogo ! {end_visit, Status#status.visitor_pid, Status#status.visiting_ref},
-            exit(Reason);
-        {status, _} ->
-            exit(Reason)
+        {status, Status}  ->
+            perform_exit(Status, Reason)
     end.
+
+perform_exit(Status, Reason) when Status#status.visiting /= -1 ->
+    Luogo = Status#status.place_pid,
+    Luogo ! {end_visit, Status#status.visitor_pid, Status#status.visiting_ref},
+    exit(Reason);
+perform_exit(_, Reason) ->
+    exit(Reason).
 
 perform_visit(Manager) ->
     Manager ! {ask_status, self()},
@@ -80,7 +83,7 @@ perform_visit(Manager) ->
             Place ! {begin_visit, self(), Ref},
             update_status(Manager, {update_visit, self(), Ref, 1, Place}),
             Visit_time = rand:uniform(5) + 5,
-            spawn(?MODULE, reminder, [self(), Visit_time]),
+            spawn_link(?MODULE, reminder, [self(), Visit_time]),
             receive_contact(Manager),
             update_status(Manager, {update_visit, -1, -1, -1, -1}),
             Manager ! {debug, end_visit},
@@ -116,6 +119,7 @@ receive_contact(Manager) ->
         done_visit -> ok
     end.
 
+debug({places_list, Places}) -> io:format("~p: Lista dei luoghi = ~p~n", [self(), Places]);
 debug(no_places) -> io:format("~p: Non ci sono posti da visitare, dormo.~n", [self()]);
 debug(begin_visit) -> io:format("~p: Sto per iniziare una visita ~n", [self()]);
 debug(end_visit) -> io:format("~p: Sto per concludere una visita~n", [self()]);
@@ -128,23 +132,27 @@ debug(yes_test) -> io:format("~p: Mi sto per testare, incrociamo le dita~n", [se
 loop(Status) ->
     receive
         {debug, Message} ->
-            debug(Message),
+%            debug(Message),
             loop(Status);
+
         {update_status, Pid} ->
             Pid ! {status, Status},
             receive
                 {status_updated, NewStatus} -> loop(NewStatus)
             end;
+
         {ask_status, Pid} ->
             Pid ! {status, Status},
             loop(Status);
+
         {'EXIT', _, positive} ->
-            %TODO lo mandiamo il messaggio per uscire dal posto oppure no?
             io:format("~p: Entro in quarantena~n", [self()]),
-            perform_exit(self(), quarantena);
-        {'EXIT', _, quarantena} ->
+            perform_exit(Status, quarantena);
+
+       {'EXIT', _, quarantena} ->
             io:format("~p: Entro in quarantena~n", [self()]),
-            perform_exit(self(), quarantena);
+            perform_exit(Status, quarantena);
+
         Other ->
             io:format("Messaggio inaspettato: ~p~n", [Other]),
             loop(Status)
@@ -155,18 +163,19 @@ utente() ->
     io:format("Ciao io sono l'utente ~p~n", [self()]),
     Status = #status{ visiting = -1,
                       places = []},
-    process_flag(trap_exit, true),
+
+    Server = global:whereis_name(server),
+    erlang:link(Server),
+
     erlang:spawn_link(?MODULE, do_test, [self()]),
     Pid_observer = erlang:spawn_link(?MODULE, place_observer, [self(), []]),
     erlang:spawn_link(?MODULE, place_manager, [self(), Pid_observer]),
     erlang:spawn_link(?MODULE, perform_visit, [self()]),
-    Server = global:whereis_name(server),
-    erlang:link(Server),
     loop(Status).
 
 
 start() ->
-    [ spawn(fun utente/0) || _ <- lists:seq(1,10) ].
+    [ spawn(fun utente/0) || _ <- lists:seq(1,30) ].
 
 %-------------- PROTOCOLS --------------%
 

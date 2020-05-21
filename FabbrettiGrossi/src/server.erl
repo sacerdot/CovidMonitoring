@@ -6,20 +6,20 @@ update_places(PIDLIST) ->
     receive
         % INIT PROTOCOL/1: keeps and monitors a place list
         {new_place, PID_LUOGO} ->
-
             update_places([PID_LUOGO | PIDLIST]);
 
-            % INIT PROTOCOL/2: react to a place exit
         {'EXIT', Pid, normal} ->
             io:format("Sto per rimuovere ~p dalla lista dei luoghi~n", [Pid]),
             update_places(PIDLIST -- [Pid]);
+
         {'EXIT', Pid, Reason} ->
             io:format("~p exit because ~p~n", [Pid, Reason]),
-            update_places(PIDLIST);
-            % TOPOLOGY PROTOCOL
+            update_places(PIDLIST -- [Pid]);
+
         {get_places, PID} ->
             PID ! {places, PIDLIST},
             update_places(PIDLIST);
+
         Other ->
             io:format("Messaggio inaspettato: ~p~n", [Other]),
             update_places(PIDLIST)
