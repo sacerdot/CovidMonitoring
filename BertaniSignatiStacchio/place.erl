@@ -26,12 +26,6 @@ start() ->
 %-----------Visit protocol-----------
 visits(USER_LIST) ->
   receive
-    {'EXIT', PID, _} ->
-      case lists:member(PID, USER_LIST) of
-        true ->
-          io:format("Exit of ~p ~n", [PID]),
-          visits([{P, R} || {P, R} <- USER_LIST, P /= PID])
-      end;
     {'DOWN', _, process, PID, _} -> % it's a user but for safety we will check it
       case global:whereis_name(server) == PID of true ->
         exit(kill)
@@ -44,14 +38,12 @@ visits(USER_LIST) ->
           io:format("SONO MORTO VISIT~p~n", [self()]),
           exit(normal);
         false ->
-          link(USER_START),
           spawn(?MODULE, touch, [USER_START, USER_LIST]),
           visits(USER_LIST ++ [{USER_START, REF}])
       end;
     {end_visit, USER_END, REF} ->
       case lists:member({USER_END, REF}, USER_LIST) of
         true ->
-          unlink(USER_END),
           visits(USER_LIST -- [{USER_END, REF}]);
         false ->
           visits(USER_LIST)

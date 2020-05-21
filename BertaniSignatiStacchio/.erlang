@@ -1,3 +1,2 @@
 io:format("executing user profile .erlang\n",[]).
-io:format("ping result: ~p~n", [net_adm:ping(list_to_atom("server@" ++ net_adm:localhost()))]).
-receive after 1000 -> ok end.
+receive after 2000 -> io:format("ping result: ~p~n", [net_adm:ping(list_to_atom("server@" ++ net_adm:localhost()))]) end.

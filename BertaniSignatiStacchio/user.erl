@@ -9,7 +9,7 @@
 -module(user).
 -author("Lorenzo_Stacchio").
 %% API
--export([start/0, start_loop/2, places_manager/1, get_places/3, test_manager/0, visit_manager/2]).
+-export([start/0, start_loop/4, places_manager/1, get_places/3, test_manager/1, visit_manager/2]).
 -define(TIMEOUT_PLACE_MANAGER, 10000).
 -define(TIMEOUT_TEST_MANAGER, 5000).
 % number of places a user keep track
@@ -23,7 +23,10 @@ flush_new_places() ->
     0 -> ok
   end.
 
-sleep(N) -> receive after N -> ok end.
+sleep(T) -> receive after T -> ok end.
+
+sleep_visit(T, PLACE_PID, Ref) ->
+  receive {exit_quarantena} -> PLACE_PID ! {end_visit, self(), Ref}, exit(quarantena) after T -> ok end.
 
 %----------------------USER----------------------
 %-----------Topology maintenance protocol-----------
@@ -94,10 +97,10 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
   process_flag(trap_exit, true),
   % Not blocking receive to get places updates (if any)
   receive
-    {'EXIT', PID, reason} ->
-      %TODO: fix death of another covid victim
+    {'EXIT', PID, _} ->
+      io:format("VISITOR DEATH OF~p~p~n",[PID,lists:member(PID, CONTACT_LIST)]),
       case lists:member(PID, CONTACT_LIST) of
-        true -> exit(quarantena);
+        true ->  io:format("~pEntro in quarantena~n", [self()]),exit(quarantena);
         false -> ok
       end;
     {'DOWN', _, process, PID, _} ->
@@ -117,7 +120,8 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
       io:format("VISIT MANAGER Update RIPETO~p ~n", [UL]),
       [monitor(process, PID) || PID <- UL],
       visit_manager(UL, CONTACT_LIST);
-    {contact, PID_TOUCH} -> link(PID_TOUCH),
+    {contact, PID_TOUCH} -> io:format("~pCONTACT WITH ~p ~n", [self(), PID_TOUCH]),
+      link(PID_TOUCH),
       visit_manager(USER_PLACES, CONTACT_LIST ++ [PID_TOUCH])
   after 0 ->
     ok
@@ -138,42 +142,65 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
       P = lists:nth(rand:uniform(length(USER_PLACES)), USER_PLACES),
       %io:format("VISITING MANAGER User:~p,Place:~p ~n", [self(),P]),
       P ! {begin_visit, self(), Ref},
-      sleep(4 + rand:uniform(6)), % visit duration as projects requirements
+      sleep_visit(4 + rand:uniform(6), P, Ref), % visit duration as projects requirements
       P ! {end_visit, self(), Ref},
       visit_manager(USER_PLACES, CONTACT_LIST)
   end.
 
 %-----------Test protocol-----------
-% user ask hospital to make illness tests
-% TODO: INSERIRE GESTIONE MORTE IN UN PLACE QUANDO MUORE PER COVID
-test_manager() ->
+% user asks hospital to make illness tests
+test_manager(VISITOR_PID) ->
   sleep(?TIMEOUT_TEST_MANAGER),
   case (rand:uniform(4) == 1) of
     true ->
       io:format("TEST covid ~p~n", [global:whereis_name(hospital) ! {test_me, self()}]),
       global:whereis_name(hospital) ! {test_me, self()},
       receive
-        positive -> io:format("~p: Entro in quarantena~n", [self()]), exit(quarantena);
-        negative -> io:format("~p NEGATIVO~n", [self()]), test_manager()
+        positive -> io:format("~p:Entro in quarantena~n", [self()]), VISITOR_PID ! {exit_quarantena}, exit(quarantena);
+        negative -> io:format("~p NEGATIVO~n", [self()]), test_manager(VISITOR_PID)
       end;
     false ->
-      test_manager()
+      test_manager(VISITOR_PID)
   end.
 
 %-----------Monitor  protocol-----------
-
 %-----------Main-----------
 % if the server dies, kill everything
-start_loop(SPAWNED_PROCESSES, SERVER_PID) ->
+start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID) ->
+  %TODO: GESTIRE MORTI DEI SINGOLI SOTTO-PROCESSI
   process_flag(trap_exit, true),
-  [link(P_SP) || P_SP <- SPAWNED_PROCESSES],
+  [link(P_SP) || P_SP <- [PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER]],
   receive {'EXIT', SERVER_PID, _} ->
-    io:format("MORTO SERVER~p~p~n", [SERVER_PID, SPAWNED_PROCESSES--[SERVER_PID]]),
-    [exit(P, kill) || P <- SPAWNED_PROCESSES--[SERVER_PID]],
+    io:format("MORTO SERVER~p~p~n", [SERVER_PID, [PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER]]),
+    [exit(P, kill) || P <- [PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER]],
     exit(kill);
-    {'EXIT', _, quarantena} ->
-      [exit(P, kill) || P <- SPAWNED_PROCESSES--[SERVER_PID]],
-      exit(kill)
+    {'EXIT', PLACES_MANAGER, _} -> PLACES_MANAGER2 = spawn(?MODULE, places_manager, [[]]),
+      register(places_manager, PLACES_MANAGER2),
+      start_loop(PLACES_MANAGER2, VISIT_MANAGER, TEST_MANAGER, SERVER_PID);
+    {'EXIT', VISIT_MANAGER, Reason} ->
+      case Reason == quarantena of
+        true -> [exit(P, kill) || P <- [PLACES_MANAGER, TEST_MANAGER]],
+          exit(kill);
+        false ->
+          unlink(TEST_MANAGER),
+          exit(TEST_MANAGER, kill),
+          VISIT_MANAGER = spawn(?MODULE, visit_manager, [[], []]),
+          register(visit_manager, VISIT_MANAGER),
+          TEST_MANAGER = spawn(?MODULE, test_manager, [VISIT_MANAGER]),
+          register(test_manager, TEST_MANAGER),
+          start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID)
+      end;
+    {'EXIT', TEST_MANAGER, Reason} ->
+      case Reason == quarantena of
+        true -> [exit(P, kill) || P <- [PLACES_MANAGER, VISIT_MANAGER]],
+          exit(kill);
+        false -> TEST_MANAGER = spawn(?MODULE, test_manager, [VISIT_MANAGER]),
+          register(test_manager, TEST_MANAGER),
+          start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID)
+      end,
+      TEST_MANAGER = spawn(?MODULE, test_manager, [VISIT_MANAGER]),
+      register(test_manager, TEST_MANAGER),
+      start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID)
   end.
 
 
@@ -187,7 +214,7 @@ start() ->
   VISIT_MANAGER = spawn(?MODULE, visit_manager, [[], []]),
   register(visit_manager, VISIT_MANAGER),
   io:format("VISITOR MANAGER SPAWNED~p~n", [VISIT_MANAGER]),
-  TEST_MANAGER = spawn(?MODULE, test_manager, []),
+  TEST_MANAGER = spawn(?MODULE, test_manager, [VISIT_MANAGER]),
   register(test_manager, TEST_MANAGER),
   io:format("TEST MANAGER SPAWNED~p~n", [TEST_MANAGER]),
-  spawn(?MODULE, start_loop, [[global:whereis_name(server), PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER], global:whereis_name(server)]).
+  spawn(?MODULE, start_loop, [PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, global:whereis_name(server)]).
