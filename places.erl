@@ -16,7 +16,7 @@ place(Visitors) ->
     receive
         {begin_visit, PID_VISITOR, REF} ->
             %io:format("è iniziata la vista di ~p in ~p con ref ~p ~n", [PID_VISITOR, self(), REF]),
-            case util:probability(20) of
+            case util:probability(10) of
                 true ->
                     io:format("il luogo ~p sta morendo~n", [self()]),
                     exit(normal);
