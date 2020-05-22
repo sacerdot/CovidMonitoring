@@ -16,7 +16,7 @@ launch () ->
   compile:file(place),
   compile:file(user),
   spawn(fun()->os:cmd('xterm -hold -e "erl -sname server -s central_server start"') end),
-  spawn(fun()->os:cmd('xterm -hold -e "erl -sname hospital -s hospital start') end),
+  spawn(fun()->os:cmd('xterm -hold -e "erl -sname hospital -s hospital start"') end),
   spawn(fun()->os:cmd('xterm -hold -e "erl -sname place -s place start"') end),
   spawn(fun()->os:cmd('xterm -hold -e "erl -sname place2 -s place start"') end),
   spawn(fun()->os:cmd('xterm -hold -e "erl -sname place3 -s place start"') end),

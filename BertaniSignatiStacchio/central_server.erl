@@ -16,7 +16,7 @@ sleep(N) -> receive after N -> ok end.
 
 start_loop(PLACES)->
   sleep(1000),
-  io:format("set flag to trap exit ~p~n",[PLACES]),
+  io:format("Set flag to trap exit ~p~n",[PLACES]),
   process_flag(trap_exit, true),
   receive
   % remove from places list dead place
@@ -39,9 +39,9 @@ start_loop(PLACES)->
   end.
 
 start() ->
-  io:format("central server started pid=~p ~n",[self()]),
+  io:format("Central server started pid=~p ~n",[self()]),
   % register central server name
   global:register_name(server,self()),
-  io:format("registered server global name ~n"),
+  io:format("Registered server global name ~n"),
   % trapping exit signal from users
   start_loop([]).

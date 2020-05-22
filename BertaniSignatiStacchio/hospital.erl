@@ -13,13 +13,13 @@
 
 
 start() ->
-  io:format("hospital started pid=~p ~n",[self()]),
+  io:format("Hospital started pid=~p ~n",[self()]),
   global:register_name(hospital,self()),
-  io:format("hospital registered~n"),
+  io:format("Hospital registered~n"),
   receive
-     % an user want to be tested
+     % an user wants to be tested
     {test_me, PID} ->
-      io:format("process ~p want to be tested ~n",[PID]),
+      io:format("Process ~p wants to be tested ~n",[PID]),
       % answer with probability 25% to be positive
       case (rand:uniform(4)==1) of
         true ->
