@@ -43,7 +43,7 @@ contact_tracing(NewUser, [PidOldUser | T], Prob) ->
   case Prob() of
     1 ->
       NewUser ! {contact, PidOldUser},
-      io:format("~p Contact from ~p to ~p~n", [self(), NewUser, PidOldUser]);
+      io:format("[Luogo] ~p Contatto da ~p a ~p~n", [self(), NewUser, PidOldUser]);
     _ -> ok
   end,
   contact_tracing(NewUser, T, Prob).

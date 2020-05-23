@@ -2,7 +2,6 @@
 -export([main/0, list_handler/2, check_list/2, visit_place/2, actorDispatcher/0, require_test/2, utente/0, start/0]).
 -import(utils, [sleep/1, set_subtract/2, take_random/2, check_service/1, make_probability/1, flush/1]).
 
-
 %%%%%%%%%%%%%%%%%%%% PROTOCOLLO DI MANTENIMENTO DELLA TOPOLOGIA (a) %%%%%%%%%%%%%%%%%%%%
 main() ->
   PidServer = check_service(server),
@@ -53,21 +52,21 @@ list_handler(PidDispatcher, L) ->
       [monitor(process, X) || X <- L1],
       list_handler(PidDispatcher, L1 ++ L);
   % messages from a dead place (DOWN)
-    {_, _, process, Pid, _} ->
+    {'DOWN', _, process, Pid, _} ->
       global:send(server, {get_places, PidDispatcher}),
       list_handler(PidDispatcher, set_subtract(L, [Pid]))
   end.
 
-handle_exit_messages(R, Name, PidDispatcher, Pid) ->
+handle_exit_messages(R, PidDispatcher, Pid) ->
   case R of
     quarantine ->
-      io:format("[~p] ~p entro in quaratena ~n", [Name, PidDispatcher]),
+      io:format("[Dispatcher] ~p entro in quarantena ~n", [PidDispatcher]),
       exit(quarantine);
     positive ->
-      io:format("[~p] ~p entro in quaratena ~n", [Name, PidDispatcher]),
+      io:format("[Dispatcher] ~p entro in quarantena ~n", [PidDispatcher]),
       exit(quarantine);
     _ ->
-      io:format("[~p] ~p mex non gestito: ~p da ~p ~n", [Name, PidDispatcher, R, Pid]),
+      io:format("[Dispatcher] ~p catturato evento: ~p da ~p ~n", [PidDispatcher, R, Pid]),
       exit(R)
   end.
 
@@ -89,8 +88,6 @@ check_list(ActorList, PidDispatcher) ->
 visit_places(ActorList, PidDispatcher) ->
   ActorList ! {get_list, self()},
   receive
-    {'EXIT', Pid, R} ->
-      handle_exit_messages(R, "VisitPlace", PidDispatcher, Pid);
     {list, L} ->
       case length(L) >= 1 of
         true ->

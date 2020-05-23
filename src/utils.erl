@@ -22,7 +22,6 @@ flush(X) ->
     0 -> ok
   end.
 
-
 make_probability(X) ->
   fun () ->
     case (rand:uniform(100) =< X) of
@@ -31,12 +30,15 @@ make_probability(X) ->
     end
   end.
 
-%check server and ospedale
+% Check server and ospedale
 check_service(X) ->
   PidService = global:whereis_name(X),
   case PidService of
     undefined ->
       io:format("~p non trovato ~n", [X]),
-      exit(server_not_registered);
+      case X of
+        ospedale -> exit(ospedale_not_registered);
+        server -> exit(server_not_registered)
+      end;
     P -> P
   end.

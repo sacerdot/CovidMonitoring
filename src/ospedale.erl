@@ -6,7 +6,7 @@
 test(Probability) ->
   receive
     {test_me, PID} ->
-      io:format("[Ospedale] User ~p require a test~n", [PID]),
+      io:format("[Ospedale] Utente ~p richiede un test~n", [PID]),
       case Probability() of
         1 -> PID ! positive;
         _ -> PID ! negative
