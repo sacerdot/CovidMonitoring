@@ -1,6 +1,6 @@
 -module(luoghi).
 -export([start/0, luogo/0, init_luogo/1, visit_place/2]).
--import(utils, [sleep/1, set_subtract/2, make_probability/1, check_service/1, flush/0]).
+-import(utils, [sleep/1, set_subtract/2, make_probability/1, check_service/1]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PROTOCOLLO DI INIZIALIZZAZIONE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init_luogo(Prob) ->

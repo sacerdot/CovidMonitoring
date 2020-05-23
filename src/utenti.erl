@@ -1,6 +1,6 @@
 -module(utenti).
 -export([main/0, list_handler/2, check_list/2, visit_place/2, actorDispatcher/0, require_test/2, utente/0, start/0]).
--import(utils, [sleep/1, set_subtract/2, take_random/2, check_service/1, make_probability/1, flush/1]).
+-import(utils, [sleep/1, set_subtract/2, take_random/2, check_service/1, make_probability/1]).
 
 %%%%%%%%%%%%%%%%%%%% PROTOCOLLO DI MANTENIMENTO DELLA TOPOLOGIA (a) %%%%%%%%%%%%%%%%%%%%
 main() ->

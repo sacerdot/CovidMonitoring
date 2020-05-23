@@ -1,5 +1,5 @@
 -module(utils).
--export([sleep/1, set_subtract/2, take_random/2, make_probability/1, check_service/1, flush/1]).
+-export([sleep/1, set_subtract/2, take_random/2, make_probability/1, check_service/1]).
 
 sleep(T) ->
   receive after T -> ok end.
@@ -14,13 +14,6 @@ take_random(L, N) ->
   E = lists:nth(rand:uniform(length(L)), L),
   R = take_random(set_subtract(L, [E]), N - 1),
   [E | R].
-
-flush(X) ->
-  receive
-    X -> flush(X)
-  after
-    0 -> ok
-  end.
 
 make_probability(X) ->
   fun () ->
