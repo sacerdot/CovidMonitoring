@@ -16,7 +16,7 @@ sleep(N) -> receive after N -> ok end.
 
 start_loop(PLACES)->
   sleep(1000),
-  io:format("Set flag to trap exit ~p~n",[PLACES]),
+  io:format("I'm server and these are my places ~p~n",[PLACES]),
   process_flag(trap_exit, true),
   receive
   % remove from places list dead place

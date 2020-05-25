@@ -9,15 +9,11 @@
 -module(hospital).
 -author("Federico Bertani").
 %% API
--export([start/0]).
+-export([start/0,start_loop/0]).
 
-
-start() ->
-  io:format("Hospital started pid=~p ~n",[self()]),
-  global:register_name(hospital,self()),
-  io:format("Hospital registered~n"),
+start_loop()->
   receive
-     % an user wants to be tested
+  % an user wants to be tested
     {test_me, PID} ->
       io:format("Process ~p wants to be tested ~n",[PID]),
       % answer with probability 25% to be positive
@@ -27,5 +23,11 @@ start() ->
         false ->
           PID ! negative
       end,
-      start()
+      start_loop()
   end.
+
+start() ->
+  io:format("Hospital started pid=~p ~n",[self()]),
+  global:register_name(hospital,self()),
+  io:format("Hospital registered~n"),
+  start_loop().

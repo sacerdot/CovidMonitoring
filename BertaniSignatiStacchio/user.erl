@@ -25,6 +25,8 @@ flush_new_places() ->
 
 sleep(T) -> receive after T -> ok end.
 
+% wait for T seconds for an exit_quarantena message (case user positive)
+% in case of user positiveness close earlier the visit and kill the user
 sleep_visit(T, PLACE_PID, Ref) ->
   receive {exit_quarantena} -> PLACE_PID ! {end_visit, self(), Ref}, exit(quarantena) after T -> ok end.
 
@@ -69,11 +71,11 @@ places_manager(USER_PLACES_LIST) ->
   process_flag(trap_exit, true), % places_manager needs to know if a place has died to request new places to server
   case length(USER_PLACES_LIST) < ?USER_PLACES_NUMBER of
     true ->
+      % spawn a process to asynchronously retrieve up to {USER_PLACES_NUMBER} places
       spawn_monitor(?MODULE, get_places, [?USER_PLACES_NUMBER, USER_PLACES_LIST, self()]);
     false ->
       sleep(?TIMEOUT_PLACE_MANAGER)
   end,
-  % spawn a process to asynchronously retrieve up to {USER_PLACES_NUMBER} places
   receive
     {'DOWN', _, process, PID, _} -> % a place has died
       case ((length(USER_PLACES_LIST) > 0) and lists:member(PID, USER_PLACES_LIST)) of
@@ -169,14 +171,19 @@ start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID) ->
     io:format("SERVER DEATH ~p ~p~n", [SERVER_PID, [PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER]]),
     [exit(P, kill) || P <- [PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER]],
     exit(kill);
-    {'EXIT', PLACES_MANAGER, _} -> PLACES_MANAGER2 = spawn(?MODULE, places_manager, [[]]),
+    {'EXIT', PLACES_MANAGER, _} ->
+      % if the place manager dies re-spawn it
+      PLACES_MANAGER2 = spawn(?MODULE, places_manager, [[]]),
       register(places_manager, PLACES_MANAGER2),
       start_loop(PLACES_MANAGER2, VISIT_MANAGER, TEST_MANAGER, SERVER_PID);
     {'EXIT', VISIT_MANAGER, Reason} ->
+      % if the visit manager dies
       case Reason == quarantena of
+        % if the user is positive kill everyone
         true -> [exit(P, kill) || P <- [PLACES_MANAGER, TEST_MANAGER]],
           exit(kill);
         false ->
+          % kill test manager since is parameterized to a died visit manager
           unlink(TEST_MANAGER),
           exit(TEST_MANAGER, kill),
           VISIT_MANAGER = spawn(?MODULE, visit_manager, [[], []]),
@@ -186,6 +193,7 @@ start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID) ->
           start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID)
       end;
     {'EXIT', TEST_MANAGER, Reason} ->
+      % if the test manager dies kill all if the user is ill otherwise respawn it
       case Reason == quarantena of
         true -> [exit(P, kill) || P <- [PLACES_MANAGER, VISIT_MANAGER]],
           exit(kill);
