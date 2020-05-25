@@ -5,6 +5,8 @@
 
 A small project in Erlang to pass the exam of Emerging Programming Paradigms @ University of Bologna
 
+## VERSIONE: 0.6
+
 ## SCOPO DEL PROGETTO:
 
    Lo scopo del progetto è quello di realizzare delle "app" (= attori) per il
@@ -109,6 +111,9 @@ tracciamento dei contatti fra portatori del virus.
       2) in caso di risposta positive l'utente stampa "sono positivo" e termina
          con exit(positive); altrimenti stampa "sono negativo"
 
+      3) nel caso in cui l'utente stia visitando un luogo, prima di terminare
+         deve uscire dal luogo
+
 - l'ospedale implementa i seguenti protocolli
 
   * PROTOCOLLO DI MANTENIMENTO DELLA TOPOLOGIA:
@@ -146,3 +151,16 @@ tracciamento dei contatti fra portatori del virus.
 
          alla ricezione di: {get_places, PID}
          risponde con: PID ! {places, PIDLIST}
+
+## STRUTTURA:
+
+- Ogni gruppo dovrà committare una directory il cui nome è ottenuto concatenando
+  in CamelCase gli account dei componenti del gruppo
+- La directory dovrà contenere quattro file chiamati luoghi.erl, ospedale.erl,
+  server.erl, utenti.erl
+- Ogni file deve esportare una funzione start/0 che fa partire gli attori del
+  tipo corrispondente (es. 1 ospedale, 1 server, 3 luoghi, 10 utenti)
+
+La directory Template mostra un esempio minimale che registra un server al quale
+gli altri attori mandano un messaggio di saluto. Suggerisce anche una modalità
+per eseguire codice di gruppi diversi su nodi diversi intercomunicanti.
