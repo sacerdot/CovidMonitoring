@@ -7,8 +7,8 @@
 %%% Created : 15. mag 2020 11:44
 %%%-------------------------------------------------------------------
 -module(launch).
-
 -export([launch/0]).
+
 
 launch () ->
   compile:file(central_server),
