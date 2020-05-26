@@ -11,15 +11,15 @@
 -export([launch/0]).
 
 launch () ->
-  compile:file(central_server),
-  compile:file(hospital),
-  compile:file(place),
-  compile:file(user),
-  spawn(fun()->os:cmd('xterm -hold -e "erl -sname server -s central_server start"') end),
-  spawn(fun()->os:cmd('xterm -hold -e "erl -sname hospital -s hospital start"') end),
-  spawn(fun()->os:cmd('xterm -hold -e "erl -sname place -s place start"') end),
-  spawn(fun()->os:cmd('xterm -hold -e "erl -sname place2 -s place start"') end),
-  spawn(fun()->os:cmd('xterm -hold -e "erl -sname place3 -s place start"') end),
-  spawn(fun()->os:cmd('xterm -hold -e "erl -sname user -s user start"') end).
+  compile:file(server),
+  compile:file(ospedale),
+  compile:file(luoghi),
+  compile:file(utenti),
+  spawn(fun()->os:cmd('xterm -hold -e "erl -sname server -s server start"') end),
+  spawn(fun()->os:cmd('xterm -hold -e "erl -sname ospedale -s ospedale start"') end),
+  spawn(fun()->os:cmd('xterm -hold -e "erl -sname luoghi -s luoghi start"') end),
+  spawn(fun()->os:cmd('xterm -hold -e "erl -sname luoghi2 -s luoghi start"') end),
+  spawn(fun()->os:cmd('xterm -hold -e "erl -sname luoghi3 -s luoghi start"') end),
+  spawn(fun()->os:cmd('xterm -hold -e "erl -sname utenti -s utenti start"') end).
 
 

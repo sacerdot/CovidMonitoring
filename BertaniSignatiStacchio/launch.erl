@@ -11,17 +11,17 @@
 
 
 launch () ->
-  compile:file(central_server),
-  compile:file(hospital),
-  compile:file(place),
-  compile:file(user),
-  spawn(fun()->os:cmd('werl -name server -s central_server start') end),
-  spawn(fun()->os:cmd('werl -name hospital -s hospital start') end),
-  spawn(fun()->os:cmd('werl -name place -s place start') end),
-  spawn(fun()->os:cmd('werl -name place2 -s place start') end),
-  spawn(fun()->os:cmd('werl -name place3 -s place start') end),
-  spawn(fun()->os:cmd('werl -name place4 -s place start') end),
-  spawn(fun()->os:cmd('werl -name user -s user start') end),
-  spawn(fun()->os:cmd('werl -name user2 -s user start') end).
+  compile:file(server),
+  compile:file(ospedale),
+  compile:file(luoghi),
+  compile:file(utenti),
+  spawn(fun()->os:cmd('werl -name server -s server start') end),
+  spawn(fun()->os:cmd('werl -name ospedale -s ospedale start') end),
+  spawn(fun()->os:cmd('werl -name luoghi -s luoghi start') end),
+  spawn(fun()->os:cmd('werl -name luoghi2 -s luoghi start') end),
+  spawn(fun()->os:cmd('werl -name luoghi3 -s luoghi start') end),
+  spawn(fun()->os:cmd('werl -name luoghi4 -s luoghi start') end),
+  spawn(fun()->os:cmd('werl -name utenti -s utenti start') end),
+  spawn(fun()->os:cmd('werl -name utenti2 -s utenti start') end).
 
 

@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 01. May 2020 11:44
 %%%-------------------------------------------------------------------
--module(place).
+-module(luoghi).
 -author("TeresaSignati").
 
 %% API
@@ -59,10 +59,8 @@ touch(USER, [H | T]) ->
   {P, _} = H,
   case rand:uniform(100) =< 25 of
     true ->
-      io:format("CONTACTS: contact between ~p and ~p~n", [USER, P]),
       P ! {contact, USER},
       USER ! {contact, P};
-    false ->
-      io:format("CONTACTS: no contact between ~p and ~p~n", [USER, P])
+    false ->ok
   end,
   touch(USER, T).

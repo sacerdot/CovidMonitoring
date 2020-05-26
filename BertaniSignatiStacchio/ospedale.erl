@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 01. May 2020 11:11
 %%%-------------------------------------------------------------------
--module(hospital).
+-module(ospedale).
 -author("Federico Bertani").
 %% API
 -export([start/0,start_loop/0]).
@@ -15,7 +15,7 @@ start_loop()->
   receive
   % an user wants to be tested
     {test_me, PID} ->
-      io:format("Process ~p wants to be tested ~n",[PID]),
+      io:format("USER ~p WANTS TO BE TESTED ~n",[PID]),
       % answer with probability 25% to be positive
       case (rand:uniform(4)==1) of
         true ->
@@ -27,7 +27,6 @@ start_loop()->
   end.
 
 start() ->
-  io:format("Hospital started pid=~p ~n",[self()]),
-  global:register_name(hospital,self()),
-  io:format("Hospital registered~n"),
+  io:format("Hospital started~n"),
+  global:register_name(ospedale,self()),
   start_loop().

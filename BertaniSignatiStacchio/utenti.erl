@@ -6,12 +6,12 @@
 %%% @end
 %%% Created : 01. mag 2020 11:44
 %%%-------------------------------------------------------------------
--module(user).
+-module(utenti).
 -author("Lorenzo_Stacchio").
 %% API
 -export([start/0, start_loop/4, places_manager/1, get_places/3, test_manager/1, visit_manager/2]).
 -define(TIMEOUT_PLACE_MANAGER, 10000).
--define(TIMEOUT_TEST_MANAGER, 10000).
+-define(TIMEOUT_TEST_MANAGER, 5000).
 % number of places a user keeps track
 -define(USER_PLACES_NUMBER, 3).
 
@@ -54,7 +54,7 @@ get_places(N, LIST_TO_RETURN, PID) ->
       global:whereis_name(server) ! {get_places, self()},
       receive
         {places, ACTIVE_PLACES} ->
-          io:format("PLACES RECEIVED ~p~n", [ACTIVE_PLACES]),
+          io:format("POLLING PLACES FROM SERVER ~p~n", [ACTIVE_PLACES]),
           case length(ACTIVE_PLACES) >= N of
             true ->
               get_places(N, get_random_elements_from_list(ACTIVE_PLACES, N, LIST_TO_RETURN), PID);
@@ -102,10 +102,9 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
   process_flag(trap_exit, true),
   % Not blocking receive to get places updates (if any)
   receive
-    {'EXIT', PID, Reason} ->
-        io:format("VISITOR DEATH OF ~p~p~n", [PID, lists:member(PID, CONTACT_LIST)]),
-          case (lists:member(PID, CONTACT_LIST)) and (Reason == quarantena) of
-            true -> io:format("~p enters in 'quarantena'~n", [self()]), exit(quarantena);
+    {'EXIT', PID, _} ->
+          case (lists:member(PID, CONTACT_LIST)) of
+            true -> io:format("~p enters in 'quarantena' because of contact with ~p~n", [self(),PID]), exit(quarantena);
             false -> ok
           end;
     {'DOWN', _, process, PID, _} ->
@@ -113,20 +112,13 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
         true -> io:format("VISIT MANAGER: place death ~p,~p, ~n", [PID, USER_PLACES--[PID]]),
           flush_new_places(),
           visit_manager(USER_PLACES--[PID], CONTACT_LIST);
-        false -> %if false, the PID could only identify a Place or another user, because of the link made only to the Server and Places.
-          case lists:member(PID, CONTACT_LIST) of
-            true -> % a person which this user had been in contact has been diagnosed positive
-              io:format("CONTACT WITH POSITIVE CASE: contact list: ~p~n", [CONTACT_LIST]),
-              io:format("CONTACT WITH POSITIVE CASE: ~p died~n", [PID]),
-              io:format("CONTACT WITH POSITIVE CASE: ~p enters in 'quarantena'~n", [self()]), exit(quarantena);
-            false -> ok %the PID was referring to a place that was not in the contact list, do nothing
-          end
+        false -> ok
       end;
     {new_places, UL} ->
       io:format("VISIT MANAGER: places updated ~p ~n", [UL]),
       [monitor(process, PID) || PID <- UL],
       visit_manager(UL, CONTACT_LIST);
-    {contact, PID_TOUCH} -> io:format("CONTACT UPDATE: contact between ~p and ~p ~n", [self(), PID_TOUCH]),
+    {contact, PID_TOUCH} -> io:format("CONTACT BETWEEN ~p & ~p ~n", [self(), PID_TOUCH]),
       link(PID_TOUCH),
       visit_manager(USER_PLACES, CONTACT_LIST ++ [PID_TOUCH])
   after 0 ->
@@ -157,12 +149,12 @@ test_manager(VISITOR_PID) ->
   sleep(?TIMEOUT_TEST_MANAGER),
   case (rand:uniform(4) == 1) of
     true ->
-      io:format("TEST covid ~p~n", [global:whereis_name(hospital) ! {test_me, self()}]),
-      global:whereis_name(hospital) ! {test_me, self()},
+      io:format("~p Is going to make covid test ~p~n", [self(),global:whereis_name(ospedale) ! {test_me, self()}]),
+      global:whereis_name(ospedale) ! {test_me, self()},
       receive
-        positive -> io:format("TEST RES: ~p positive -> 'quarantena'~n", [self()]), VISITOR_PID ! {exit_quarantena},
+        positive -> io:format("TEST RESULT: ~p positive -> 'quarantena'~n", [self()]), VISITOR_PID ! {exit_quarantena},
           exit(quarantena);
-        negative -> io:format("TEST RES: ~p negative ~n", [self()]), test_manager(VISITOR_PID)
+        negative -> io:format("TEST RESULT: ~p negative ~n", [self()]), test_manager(VISITOR_PID)
       end;
     false ->
       test_manager(VISITOR_PID)
@@ -172,7 +164,6 @@ test_manager(VISITOR_PID) ->
 %-----------Monitor  protocol-----------
 % if the server dies, kill everything
 start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID) ->
-  io:format("SONO IN START LOOP~p~n", [[PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER]]),
   process_flag(trap_exit, true),
   [link(P_SP) || P_SP <- [PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER]],
   receive {'EXIT', SERVER_PID, _} ->
@@ -181,7 +172,7 @@ start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID) ->
     exit(kill);
     {'EXIT', PLACES_MANAGER, _} ->
       % if the place manager dies re-spawn it
-      io:format("STO SPAWNANDO PLACES", []),
+      io:format("RESTART BECAUSE OF PLACES_MANAGER DEATH ", []),
       [exit(P, kill) || P <- [VISIT_MANAGER,TEST_MANAGER]],
       spawn(?MODULE, start, []);
     {'EXIT', VISIT_MANAGER, Reason} ->
@@ -191,7 +182,6 @@ start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID) ->
         true -> [exit(P, kill) || P <- [PLACES_MANAGER, TEST_MANAGER]],
           exit(kill);
         false ->
-          io:format("STO SPAWNANDO visitor", []),
           % kill test manager since is parameterized to a died visit manager
           [exit(P, kill) || P <- [PLACES_MANAGER,TEST_MANAGER]],
           spawn(?MODULE, start, [])
@@ -199,9 +189,11 @@ start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID) ->
     {'EXIT', TEST_MANAGER, Reason} ->
       % if the test manager dies kill all if the user is ill otherwise respawn it
       case Reason == quarantena of
-        true -> [exit(P, kill) || P <- [PLACES_MANAGER, VISIT_MANAGER]],
+      true -> exit(PLACES_MANAGER, kill),
+          exit(VISIT_MANAGER, kill),
           exit(kill);
-        false -> io:format("STO SPAWNANDO TEST_MANAGER", []),
+        false ->
+          io:format("RESTART BECAUSE OF TEST_MANAGER DEATH ", []),
           [exit(P, kill) || P <- [PLACES_MANAGER,VISIT_MANAGER]],
           spawn(?MODULE, start, [])
       end
@@ -210,7 +202,7 @@ start_loop(PLACES_MANAGER, VISIT_MANAGER, TEST_MANAGER, SERVER_PID) ->
 
 start() ->
   sleep(1000),
-  io:format("Hospital ping result: ~p~n", [net_adm:ping(list_to_atom("hospital@" ++ net_adm:localhost()))]),
+  io:format("Hospital ping result: ~p~n", [net_adm:ping(list_to_atom("ospedale@" ++ net_adm:localhost()))]),
   PLACES_MANAGER = spawn(?MODULE, places_manager, [[]]),
   register(places_manager, PLACES_MANAGER),
   io:format("PLACES MANAGER SPAWNED~p~n", [PLACES_MANAGER]),
