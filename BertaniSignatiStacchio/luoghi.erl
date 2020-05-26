@@ -11,7 +11,7 @@
 
 %% API
 -export([start/0, visits/1, touch/2]).
--define(DEATH_PROB, 600).
+-define(DEATH_PROB, 10).
 
 sleep(N) -> receive after N -> ok end.
 

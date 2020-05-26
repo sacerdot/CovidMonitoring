@@ -17,7 +17,7 @@ start_loop()->
     {test_me, PID} ->
       io:format("USER ~p WANTS TO BE TESTED ~n",[PID]),
       % answer with probability 25% to be positive
-      case (rand:uniform(4)==1) of
+      case (rand:uniform(4)=<1) of
         true ->
           PID ! positive;
         false ->
