@@ -32,7 +32,7 @@ visit_place(L, Probs) ->
       visit_place(set_subtract(L, [{PID, Ref, MRef}]), Probs);
     {'DOWN', MRef, process, PidExit, Reason} ->
       [{Ref, MRef}] = [{R, MR} || {Pid, R, MR} <- L, Pid =:= PidExit],
-      io:format("[Luogo] ~p User ~p with Ref  ~p died with reason ~p ~n", [self(), PidExit, Ref, Reason]),
+      io:format("[Luogo] ~p Utente ~p con Ref  ~p morto per ~p ~n", [self(), PidExit, Ref, Reason]),
       NL = set_subtract(L, [{PidExit, Ref, MRef}]),
       visit_place(NL, Probs)
   end.
@@ -61,4 +61,3 @@ start() ->
 luogo() ->
   io:format("Io sono il luogo ~p~n", [self()]),
   init_luogo(get_probs()).
-

@@ -16,9 +16,8 @@ deps
 _build/
 _checkouts/
 
-# intellij
-*.iml
-.idea
+Contact-Tracing.iml
 
+.idea/
 
 *.log
