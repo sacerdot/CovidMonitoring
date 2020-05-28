@@ -11,7 +11,7 @@
 %% API
 -export([start/0, start_loop/4, places_manager/1, get_places/3, test_manager/1, visit_manager/2]).
 -define(TIMEOUT_PLACE_MANAGER, 10000).
--define(TIMEOUT_TEST_MANAGER, 5000).
+-define(TIMEOUT_TEST_MANAGER, 30000).
 % number of places a user keeps track
 -define(USER_PLACES_NUMBER, 3).
 
