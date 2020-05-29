@@ -61,18 +61,13 @@ update_visitors(VisitorsList) ->
 %%% @end
 %%%-----------------------------------------------------------------------
 
-find_contact(_, []) -> ok;
-find_contact(NewVisitor, [Visitor | OtherVisitors]) ->
-    Result = rand:uniform(4),
-    case Result of
-        4 ->
-            {_, PidVisitor} = Visitor,
+find_contact(NewVisitor, Visitors) ->
+  [     case rand:uniform(4) of
+          1 ->
             NewVisitor ! {contact, PidVisitor},
-            PidVisitor ! {contact, NewVisitor},
-            find_contact(NewVisitor, OtherVisitors);
-
-        _ -> find_contact(NewVisitor, OtherVisitors)
-  end.
+            PidVisitor ! {contact, NewVisitor};
+          _ -> no_contact
+        end|| {_,PidVisitor} <- Visitors].
 
 %%%-------------------------------------------------------------------
 %%% @doc CICLO DI VITA:
