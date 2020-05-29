@@ -9,8 +9,11 @@ test() ->
 				 _ -> Pid ! negative, test()
 			end
 	end.
-	
+
+ospedale()->
+    global:register_name(hospital,self()),
+    test().
+
 start() ->
-      	global:register_name(hospital,self()),
-	test().
+	spawn(fun ospedale/0 ).
 
