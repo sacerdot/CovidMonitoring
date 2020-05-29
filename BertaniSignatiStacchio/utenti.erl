@@ -12,8 +12,7 @@
 -export([start/0, places_manager/1, get_places/3, test_manager/1, visit_manager/2]).
 -define(TIMEOUT_PLACE_MANAGER, 10000).
 -define(TIMEOUT_TEST_MANAGER, 30000).
-% number of places a user keeps track
--define(USER_PLACES_NUMBER, 3).
+-define(USER_PLACES_NUMBER, 3). % number of places a user keeps track
 
 
 flush_new_places() ->
@@ -56,15 +55,12 @@ get_places(N, LIST_TO_RETURN, PID) ->
         {places, ACTIVE_PLACES} ->
           io:format("POLLING PLACES FROM SERVER ~p~n", [ACTIVE_PLACES]),
           case length(ACTIVE_PLACES) >= N of
-            true ->
-              get_places(N, get_random_elements_from_list(ACTIVE_PLACES, N, LIST_TO_RETURN), PID);
-            % not enough active places, die
-            false -> exit(normal)
+            true -> get_places(N, get_random_elements_from_list(ACTIVE_PLACES, N, LIST_TO_RETURN), PID);
+            false -> exit(normal)  % not enough active places, die
           end
       end;
     true ->
       PID ! {new_places, LIST_TO_RETURN},
-      io:format("ecco qua il pid di quel coglione del VM ~p~n", [visit_manager]),
       visit_manager ! {new_places, LIST_TO_RETURN}
   end.
 
@@ -73,11 +69,9 @@ get_places(N, LIST_TO_RETURN, PID) ->
 places_manager(USER_PLACES_LIST) ->
   process_flag(trap_exit, true), % places_manager needs to know if a place has died to request new places to server
   case length(USER_PLACES_LIST) < ?USER_PLACES_NUMBER of
-    true ->
-      % spawn a process to asynchronously retrieve up to {USER_PLACES_NUMBER} places
+    true -> % spawn a process to asynchronously retrieve up to {USER_PLACES_NUMBER} places
       spawn_monitor(?MODULE, get_places, [?USER_PLACES_NUMBER, USER_PLACES_LIST, self()]);
-    false ->
-      sleep(?TIMEOUT_PLACE_MANAGER)
+    false -> sleep(?TIMEOUT_PLACE_MANAGER)
   end,
   receive
     {'DOWN', _, process, PID, _} -> % a place has died
@@ -184,7 +178,7 @@ start() ->
       % if the user enters in 'quarantena' or the server is killed, kill everything
       case (REASON == quarantena) or (KP == SERVER) of
         true ->
-          io:format("The user is dead ~n");
+          io:format("User or server is dead ~n");
         false ->
           io:format("Restart user ~n"),
           start()
