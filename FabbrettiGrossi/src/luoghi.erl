@@ -32,24 +32,24 @@ luogo() ->
 %%%-------------------------------------------------------------------------
 
 update_visitors(VisitorsList) ->
-    receive
-        {debug, Message} ->
-            debug(Message),
-            update_visitors(VisitorsList);
+  receive
+    {debug, Message} ->
+      debug(Message),
+      update_visitors(VisitorsList);
 
-        {begin_visit, PidVisitor, Ref} ->
-            self() ! {debug, {begin_visit, PidVisitor, VisitorsList}},
-            find_contact(PidVisitor, VisitorsList),
-            place_manager(),
-            update_visitors([{Ref, PidVisitor} | VisitorsList]);
+    {begin_visit, PidVisitor, Ref} ->
+      self() ! {debug, {begin_visit, PidVisitor, VisitorsList}},
+      find_contact(PidVisitor, VisitorsList),
+      place_manager(),
+      update_visitors([{Ref, PidVisitor} | VisitorsList]);
 
-        {end_visit, PidVisitor, Ref} ->
-            self() ! {debug, {end_visit, PidVisitor, VisitorsList}},
-            update_visitors(VisitorsList -- [{Ref, PidVisitor}]);
+    {end_visit, PidVisitor, Ref} ->
+      self() ! {debug, {end_visit, PidVisitor, VisitorsList}},
+      update_visitors(VisitorsList -- [{Ref, PidVisitor}]);
 
-        Other ->
-            io:format("Messaggio inatteso: ~p~n", [Other]),
-            update_visitors(VisitorsList)
+    Other ->
+      io:format("Messaggio inatteso: ~p~n", [Other]),
+      update_visitors(VisitorsList)
   end.
 
 %%%-----------------------------------------------------------------------
@@ -77,13 +77,12 @@ find_contact(NewVisitor, Visitors) ->
 %%%-------------------------------------------------------------------
 
 place_manager() ->
-    Result = rand:uniform(10),
-    case Result of
-        10 ->
-            exit(normal);
-        _ ->
-            ok
-    end.
+  case rand:uniform(10) of
+    10 ->
+      exit(normal);
+    _ ->
+      ok
+  end.
 
 %%%-------------------------------------------------------------------
 %%% @doc Debug e Stampe
@@ -91,12 +90,12 @@ place_manager() ->
 %%%-------------------------------------------------------------------
 
 debug({contact, Pid1, Pid2}) ->
-    io:format("~p: Contatto tra ~p e ~p~n", [self(), Pid1, Pid2]);
+  io:format("~p: Contatto tra ~p e ~p~n", [self(), Pid1, Pid2]);
 debug({end_visit, Pid, Visitors}) ->
-    VisitorsList = [ L || {_, L} <- Visitors],
-    io:format("~p: visitatore ~p ha terminato la visita ~n", [self(), Pid]),
-    io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorsList -- [Pid]]);
+  VisitorsList = [ L || {_, L} <- Visitors],
+  io:format("~p: visitatore ~p ha terminato la visita ~n", [self(), Pid]),
+  io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorsList -- [Pid]]);
 debug({begin_visit, Pid, Visitors}) ->
-    VisitorsList = [ L || {_, L} <- Visitors],
-    io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorsList ++ [Pid]]),
-    io:format("~p: visitatore ~p ha iniziato la visita~n", [self(), Pid]).
+  VisitorsList = [ L || {_, L} <- Visitors],
+  io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorsList ++ [Pid]]),
+  io:format("~p: visitatore ~p ha iniziato la visita~n", [self(), Pid]).
