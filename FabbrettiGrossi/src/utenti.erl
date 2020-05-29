@@ -164,18 +164,6 @@ perform_visit(Manager) ->
   perform_visit(Manager).
 
 %%--------------------------------------------------------------------
-%% @doc Viene richiesto al manager principale lo status dell'utente
-%% e poi viene performata la exit.
-%% @end
-%%--------------------------------------------------------------------
-check_and_exit(Manager, Reason) ->
-  Manager ! {ask_status, self()},
-  receive
-    {status, Status}  ->
-      perform_exit(Status, Reason)
-  end.
-
-%%--------------------------------------------------------------------
 %% @doc Effettua la exit, se l'utente sta effettuando una visita
 %% questa viene prima terminata
 %% @end
