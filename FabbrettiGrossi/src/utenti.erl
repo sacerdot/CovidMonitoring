@@ -75,7 +75,7 @@ loop(Status, Server) ->
 %% e ne aggiunge di nuovi se disponibili.
 %% @end
 %%--------------------------------------------------------------------
-place_manager(Manager, Pid_observer) ->
+place_manager(Manager, PidObserver) ->
   Manager ! {ask_status, self()},
   Status = receive {status, RStatus} -> RStatus end,
   Places = Status#status.places,
@@ -87,11 +87,11 @@ place_manager(Manager, Pid_observer) ->
       AllPlaces = receive {places, Pidlist} -> Pidlist end,
       NewPlaces = erlang:subtract(AllPlaces, Places),
       PlacesUpdated = sample(3 - length(Places), NewPlaces),
-      [ Pid_observer ! {start_monitor, Place_pid} || Place_pid <- PlacesUpdated],
+      [ PidObserver ! {start_monitor, PlacePid} || PlacePid <- PlacesUpdated],
       update_status(Manager, {update_places, PlacesUpdated ++ Places})
   end,
   sleep(2),
-  place_manager(Manager, Pid_observer).
+  place_manager(Manager, PidObserver).
 
 %%--------------------------------------------------------------------
 %% @doc Il place manager monitora i luoghi che l'utente ha nella lista,
@@ -103,6 +103,7 @@ place_observer(Manager, Places) ->
     {start_monitor, NewPlace } ->
       monitor(process, NewPlace),
       place_observer(Manager, Places ++ [NewPlace]);
+
     {'DOWN', _, process, Pid, normal} ->
       NewPlaces = Places -- [Pid],
       update_status(Manager, {update_places, NewPlaces}),
@@ -123,7 +124,7 @@ do_test(Manager) ->
       receive
         positive ->
           Manager ! {debug, positive_test},
-          check_and_exit(Manager, positive);
+          exit(positive);
         negative ->
           Manager ! {debug, negative_test}
       end;
@@ -201,7 +202,6 @@ update_status(Manager, Update) ->
                   io:format("Tupla non prevista: ~p~n", [Other]),
                   Status
               end,
-
   Manager ! {status_updated, NewStatus}.
 
 %%--------------------------------------------------------------------
