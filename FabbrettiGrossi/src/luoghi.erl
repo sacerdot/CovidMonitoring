@@ -1,79 +1,101 @@
+%%%--------------------------------------------------------------------
+%%% @doc Modulo luoghi per il progetto del corso di Paradigmi emergenti.
+%%% @end
+%%%--------------------------------------------------------------------
+
 -module(luoghi).
 -export([start/0]).
 
-place_manager() ->
-    Result = rand:uniform(10),
-    case Result of
-        10 ->
-            exit(normal);   % close place
-        _ ->
-            ok
-    end.
+start() ->
+  [ spawn(fun luogo/0) || _ <- lists:seq(1,10) ].
 
-find_contact(_, []) -> ok;
-find_contact(NEW_VISITOR, [VISITOR | OTHER_VISITORS]) ->
-    Result = rand:uniform(4),
-    case Result of
-        4 ->
-            {_, PID_VISITOR} = VISITOR,
-            NEW_VISITOR ! {contact, PID_VISITOR},
-            PID_VISITOR ! {contact, NEW_VISITOR},
-            find_contact(NEW_VISITOR, OTHER_VISITORS);
-
-        _ -> find_contact(NEW_VISITOR, OTHER_VISITORS)
-  end.
-
-
-debug({contact, Pid1, Pid2}) ->
-    io:format("~p: Contatto tra ~p e ~p~n", [self(), Pid1, Pid2]);
-debug({end_visit, Pid, Visitors}) ->
-    VisitorList = [ L || {_, L} <- Visitors],
-    io:format("~p: visitatore ~p ha terminato la visita ~n", [self(), Pid]),
-    io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorList -- [Pid]]);
-debug({begin_visit, Pid, Visitors}) ->
-    VisitorList = [ L || {_, L} <- Visitors],
-    io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorList ++ [Pid]]),
-    io:format("~p: visitatore ~p ha iniziato la visita~n", [self(), Pid]).
-
-
-
-update_visitors(VISITORS_LIST) ->
-    receive
-        {debug, Message} ->
-            debug(Message),
-            update_visitors(VISITORS_LIST);
-
-        {begin_visit, PID_VISITATORE, REF} ->
-            %DEBUG
-            self() ! {debug, {begin_visit, PID_VISITATORE, VISITORS_LIST}},
-
-            % CONTACT PROTOCOL
-            find_contact(PID_VISITATORE, VISITORS_LIST),
-
-            % LIFE CYCLE
-            place_manager(),
-            update_visitors([{REF, PID_VISITATORE} | VISITORS_LIST]);
-
-        {end_visit, PID_VISITATORE, REF} ->
-            self() ! {debug, {end_visit, PID_VISITATORE, VISITORS_LIST}},
-            update_visitors(VISITORS_LIST -- [{REF, PID_VISITATORE}]);
-
-        Other ->
-            io:format("Messaggio inatteso: ~p~n", [Other]),
-            update_visitors(VISITORS_LIST)
-  end.
-
+%%%-------------------------------------------------------------------------
+%%% @doc PROTOCOLLO DI INIZIALIZZAZIONE:
+%%%  1) si linka al server: nel caso in cui il server muoia tutti gli attori
+%%%  in causa devono terminare.
+%%%  2) comunica al server la propria esistenza.
+%%% @end
+%%%-------------------------------------------------------------------------
 
 luogo() ->
   io:format("Io sono il luogo ~p~n",[self()]),
   Server = global:whereis_name(server),
-  % INIT PROTOCOL/1: link to server
   link(Server),
-  % INIT PROTOCOL/2: notify server
   Server ! {new_place, self()},
-  % update visitors
   update_visitors([]).
 
+%%%-------------------------------------------------------------------------
+%%% @doc PROTOCOLLO DI VISITA DEI LUOGHI:
+%%% mantiene una lista dei visitatori. I visitatori entrano/escono dalla
+%%% lista quando vengono ricevuti i messaggi.
+%%% @end
+%%%-------------------------------------------------------------------------
 
-start() ->
-  [ spawn(fun luogo/0) || _ <- lists:seq(1,10) ].
+update_visitors(VisitorsList) ->
+  receive
+    {debug, Message} ->
+      debug(Message),
+      update_visitors(VisitorsList);
+
+    {begin_visit, PidVisitor, Ref} ->
+      self() ! {debug, {begin_visit, PidVisitor, VisitorsList}},
+      find_contact(PidVisitor, VisitorsList),
+      place_manager(),
+      update_visitors([{Ref, PidVisitor} | VisitorsList]);
+
+    {end_visit, PidVisitor, Ref} ->
+      self() ! {debug, {end_visit, PidVisitor, VisitorsList}},
+      update_visitors(VisitorsList -- [{Ref, PidVisitor}]);
+
+    Other ->
+      io:format("Messaggio inatteso: ~p~n", [Other]),
+      update_visitors(VisitorsList)
+  end.
+
+%%%-----------------------------------------------------------------------
+%%% @doc PROTOCOLLO DI RILEVAMENTO DEI CONTATTI:
+%%% quando un visitatore entra in lista, a lui e a tutti quelli presenti 
+%%% nella lista con probabilità 25% viene inviato un messaggio di contatto
+%%% per sapere con chi sono entrati in contatto. 
+%%% Uno dei due deve essere il nuovo arrivato.
+%%% @end
+%%%-----------------------------------------------------------------------
+
+find_contact(NewVisitor, Visitors) ->
+  [     case rand:uniform(4) of
+          1 ->
+            NewVisitor ! {contact, PidVisitor},
+            PidVisitor ! {contact, NewVisitor};
+          _ -> no_contact
+        end|| {_,PidVisitor} <- Visitors].
+
+%%%-------------------------------------------------------------------
+%%% @doc CICLO DI VITA:
+%%% ogni volta che un luogo viene visitato ha il 10% di probabilità 
+%%% di chiudere, ovvero l'attore termina con successo. 
+%%% @end
+%%%-------------------------------------------------------------------
+
+place_manager() ->
+  case rand:uniform(10) of
+    10 ->
+      exit(normal);
+    _ ->
+      ok
+  end.
+
+%%%-------------------------------------------------------------------
+%%% @doc Debug e Stampe
+%%% @end
+%%%-------------------------------------------------------------------
+
+debug({contact, Pid1, Pid2}) ->
+  io:format("~p: Contatto tra ~p e ~p~n", [self(), Pid1, Pid2]);
+debug({end_visit, Pid, Visitors}) ->
+  VisitorsList = [ L || {_, L} <- Visitors],
+  io:format("~p: visitatore ~p ha terminato la visita ~n", [self(), Pid]),
+  io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorsList -- [Pid]]);
+debug({begin_visit, Pid, Visitors}) ->
+  VisitorsList = [ L || {_, L} <- Visitors],
+  io:format("~p: Lista di visitatori nel luogo: ~p~n", [self(),VisitorsList ++ [Pid]]),
+  io:format("~p: visitatore ~p ha iniziato la visita~n", [self(), Pid]).
