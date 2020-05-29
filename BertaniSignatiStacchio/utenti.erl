@@ -69,10 +69,6 @@ get_places(N, LIST_TO_RETURN, PID) ->
 % responsible of keeping up to {USER_PLACES_NUMBER} places
 places_manager(USER_PLACES_LIST) ->
   process_flag(trap_exit, true), % places_manager needs to know if a place has died to request new places to server
-  receive
-    {get_places_from_manager, PID3} -> PID3 ! {new_places, USER_PLACES_LIST} %case of visitor resurrection
-  after 0 -> ok
-  end,
   case length(USER_PLACES_LIST) < ?USER_PLACES_NUMBER of
     true ->
       % spawn a process to asynchronously retrieve up to {USER_PLACES_NUMBER} places
@@ -93,8 +89,7 @@ places_manager(USER_PLACES_LIST) ->
     {new_places, NEW_PLACES} -> % message received from the spawned process that asked the new places
       io:format("PLACES MANAGER: places updated ~p,~p,~n", [NEW_PLACES, length(NEW_PLACES)]),
       [monitor(process, PID) || PID <- NEW_PLACES], % monitor all the new places
-      places_manager(NEW_PLACES);
-    {get_places_from_manager, PID} -> PID ! {new_places, USER_PLACES_LIST} %case of visitor resurrection
+      places_manager(NEW_PLACES)
   end.
 
 %-----------Visit protocol-----------
