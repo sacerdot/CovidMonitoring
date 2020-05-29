@@ -27,31 +27,31 @@ start() ->
 %%%----------------------------------------------------------------------------
 
 update_places(PidList) ->
-    receive
-        {new_place, PidPlace} ->
-            update_places([PidPlace | PidList]);
+  receive
+    {new_place, PidPlace} ->
+      update_places([PidPlace | PidList]);
 
-        {'EXIT', Pid, normal} ->
-            io:format("Sto per rimuovere ~p dalla lista dei luoghi~n", [Pid]),
-            update_places(PidList -- [Pid]);
+    {'EXIT', Pid, normal} ->
+      io:format("Sto per rimuovere ~p dalla lista dei luoghi~n", [Pid]),
+      update_places(PidList -- [Pid]);
 
-        {'EXIT', Pid, positive} ->
-            io:format("~p: esce perche' positivo al test~n", [Pid]),
-            update_places(PidList);
+    {'EXIT', Pid, positive} ->
+      io:format("~p: esce perche' positivo al test~n", [Pid]),
+      update_places(PidList);
 
-        {'EXIT', Pid, quarantena} ->
-            io:format("~p: esce perche' va in quarantena~n", [Pid]),
-            update_places(PidList);
+    {'EXIT', Pid, quarantena} ->
+      io:format("~p: esce perche' va in quarantena~n", [Pid]),
+      update_places(PidList);
 
-        {'EXIT', Pid, Reason} ->
-            io:format("~p exit because ~p~n", [Pid, Reason]),
-            update_places(PidList -- [Pid]);
+    {'EXIT', Pid, Reason} ->
+      io:format("~p exit because ~p~n", [Pid, Reason]),
+      update_places(PidList -- [Pid]);
 
-        {get_places, Pid} ->
-            Pid ! {places, PidList},
-            update_places(PidList);
+    {get_places, Pid} ->
+      Pid ! {places, PidList},
+      update_places(PidList);
 
-        Other ->
-            io:format("Messaggio inaspettato: ~p~n", [Other]),
-            update_places(PidList)
+    Other ->
+      io:format("Messaggio inaspettato: ~p~n", [Other]),
+      update_places(PidList)
   end.
