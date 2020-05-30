@@ -1,12 +1,15 @@
 -module(luoghi).
--export([start/0]).
+-export([start/0, luogo/0]).
 
 
-start() -> vedereComeFare.
+start() -> 
+    io:format('Creo un luogo~n'),
+    spawn(?MODULE, luogo, []).
+
 
 luogo()->
 	Server = global:whereis_name(server),
-	%link al server,
+	link(Server),
 	Server ! {new_place,self()},
 	visita([]).
 
@@ -16,23 +19,24 @@ visita(Users)->
 			io:format("inizio visita",[]),		
 			contatto(User,Users),
 		        chiudo(),	
-			visita(Users++{User, Ref});			
+			visita(Users++[{User, Ref}]);			
 		{end_visit, User, Ref} -> 
 			io:format("fine visita",[]),
-			visita(lists:delete({User, Ref}, Users))
+			visita(Users--[{User, Ref}])
 	end.
 
 contatto(_, []) -> fine;
 contatto(U1, [{U2,_}|U] ) -> 
 		case rand:uniform(4) of
-			1 -> U1 ! {contact, U2}
+			1 -> U1 ! {contact, U2};
+            _ -> ok
 		end,
 		contatto(U1,U).
 
-chiudo() -> 
+chiudo() ->
+    io:format("Entro in chiudo", []), 
 	case rand:uniform(10) of
-		1->io:format("chiudo",[]),
-		exit(ho_chiuso) %chiedere al prof per quanto riguarda il tag di Reason per la chiusura del luogo 
-		%penso si debba usare la  exit 
-	end.
-		
+		1->io:format("Chiudo. Sono: ~p~n",[self()]),
+		exit(normal);
+        _ -> ok 
+	end.	
