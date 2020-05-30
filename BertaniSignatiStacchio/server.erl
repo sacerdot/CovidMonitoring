@@ -12,10 +12,8 @@
 %% API
 -export([start/0, start_loop/1]).
 
-sleep(N) -> receive after N -> ok end.
-
 start_loop(PLACES)->
-  sleep(1000),
+  timer:sleep(1000),
   io:format("SERVER PLACES ~p~n",[PLACES]),
   process_flag(trap_exit, true),
   receive

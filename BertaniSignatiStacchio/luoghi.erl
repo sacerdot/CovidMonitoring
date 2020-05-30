@@ -13,11 +13,9 @@
 -export([start/0, visits/1, touch/2]).
 -define(DEATH_PROB, 10).
 
-sleep(N) -> receive after N -> ok end.
-
 %-----------Initialization protocol-----------
 start() ->
-  sleep(2000),
+  timer:sleep(2000),
   monitor(process, global:whereis_name(server)),
   global:whereis_name(server) ! {new_place, self()},
   io:format("OPENED PLACE~p~n", [self()]),

@@ -14,15 +14,12 @@
 -define(TIMEOUT_TEST_MANAGER, 30000).
 -define(USER_PLACES_NUMBER, 3). % number of places a user keeps track
 
-
 flush_new_places() ->
   receive
     {new_places, _} -> flush_new_places()
   after
     0 -> ok
   end.
-
-sleep(T) -> receive after T -> ok end.
 
 % wait for T seconds for an exit_quarantena message (case user positive)
 % in case of user positiveness close earlier the visit and kill the user
@@ -71,7 +68,7 @@ places_manager(USER_PLACES_LIST) ->
   case length(USER_PLACES_LIST) < ?USER_PLACES_NUMBER of
     true -> % spawn a process to asynchronously retrieve up to {USER_PLACES_NUMBER} places
       spawn_monitor(?MODULE, get_places, [?USER_PLACES_NUMBER, USER_PLACES_LIST, self()]);
-    false -> sleep(?TIMEOUT_PLACE_MANAGER)
+    false -> timer:sleep(?TIMEOUT_PLACE_MANAGER)
   end,
   receive
     {'DOWN', _, process, PID, _} -> % a place has died
@@ -129,7 +126,7 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
           visit_manager(UL2, CONTACT_LIST)
       end;
     false ->
-      sleep(2 + rand:uniform(3)), % wait for 3-5s
+      timer:sleep(2 + rand:uniform(3)), % wait for 3-5s
       Ref = make_ref(),
       % choose one random place to visit
       P = lists:nth(rand:uniform(length(USER_PLACES)), USER_PLACES),
@@ -142,7 +139,7 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
 %-----------Test protocol-----------
 % user asks hospital to make illness tests
 test_manager(VISITOR_PID) ->
-  sleep(?TIMEOUT_TEST_MANAGER),
+  timer:sleep(?TIMEOUT_TEST_MANAGER),
   case (rand:uniform(4) == 1) of
     true ->
       io:format("~p Is going to make covid test ~p~n", [self(),global:whereis_name(ospedale) ! {test_me, self()}]),
@@ -159,7 +156,7 @@ test_manager(VISITOR_PID) ->
 
 %-----------Monitor  protocol-----------
 start() ->
-  sleep(3000),
+  timer:sleep(3000),
   io:format("Hospital ping result: ~p~n", [net_adm:ping(list_to_atom("ospedale@" ++ net_adm:localhost()))]),
   SERVER = global:whereis_name(server),
   PM = spawn_link(?MODULE, places_manager, [[]]),
