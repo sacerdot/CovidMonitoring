@@ -15,10 +15,9 @@
 start_loop(PLACES)->
   timer:sleep(1000),
   io:format("SERVER PLACES ~p~n",[PLACES]),
-  process_flag(trap_exit, true),
   receive
   % remove from places list dead place
-    {'DOWN', _, process, PID_EXIT, _} ->
+    {'EXIT',PID_EXIT, _} ->
       case lists:member(PID_EXIT,PLACES) of
         true-> io:format("DEATH OF PLACE ~p ~n",[PID_EXIT]),
           start_loop(PLACES--[PID_EXIT]);
@@ -26,7 +25,7 @@ start_loop(PLACES)->
       end;
   % a new place is registering
     {new_place,NEW_PID} ->
-      monitor(process, NEW_PID),
+      link(NEW_PID),
       io:format("NEW PLACE ~p REGISTRATION ~n",[NEW_PID]),
       start_loop(PLACES ++ [NEW_PID]);
   % user requested list of places
@@ -39,4 +38,5 @@ start() ->
   io:format("SERVER STARTED~n"),
   % register central server name
   global:register_name(server,self()),
+  process_flag(trap_exit, true),
   start_loop([]).

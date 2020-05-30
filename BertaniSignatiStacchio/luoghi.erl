@@ -16,7 +16,6 @@
 %-----------Initialization protocol-----------
 start() ->
   timer:sleep(2000),
-  monitor(process, global:whereis_name(server)),
   global:whereis_name(server) ! {new_place, self()},
   io:format("OPENED PLACE~p~n", [self()]),
   visits([]).
@@ -24,10 +23,6 @@ start() ->
 %----------------Visit protocol---------------
 visits(USER_LIST) ->
   receive
-    {'DOWN', _, process, PID, _} -> % it's a user but for safety we will check it
-      case global:whereis_name(server) == PID of true ->
-        exit(kill)
-      end;
     {begin_visit, USER_START, REF} ->
       io:format("BEGIN VISIT ~p~n", [USER_START]),
       V = rand:uniform(?DEATH_PROB),
