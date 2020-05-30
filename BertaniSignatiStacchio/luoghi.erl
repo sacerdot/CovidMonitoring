@@ -16,6 +16,7 @@
 %-----------Initialization protocol-----------
 start() ->
   timer:sleep(2000),
+  link(global:whereis_name(server)),
   global:whereis_name(server) ! {new_place, self()},
   io:format("OPENED PLACE~p~n", [self()]),
   visits([]).
@@ -23,22 +24,21 @@ start() ->
 %----------------Visit protocol---------------
 visits(USER_LIST) ->
   receive
-    {begin_visit, USER_START, REF} ->
-      io:format("BEGIN VISIT ~p~n", [USER_START]),
-      V = rand:uniform(?DEATH_PROB),
-      case (V =< 1) of
+    {begin_visit, USER, REF} ->
+      io:format("BEGIN VISIT ~p~n", [USER]),
+      case (rand:uniform(?DEATH_PROB) =< 1) of
         true ->
           io:format("CLOSED PLACE ~p~n", [self()]),
           exit(normal);
         false ->
-          spawn(?MODULE, touch, [USER_START, USER_LIST]),
-          visits(USER_LIST ++ [{USER_START, REF}])
+          spawn(?MODULE, touch, [USER, USER_LIST]),
+          visits(USER_LIST ++ [{USER, REF}])
       end;
-    {end_visit, USER_END, REF} ->
-      io:format("END VISIT ~p ~n", [USER_END]),
-      case lists:member({USER_END, REF}, USER_LIST) of
+    {end_visit, USER, REF} ->
+      io:format("END VISIT ~p ~n", [USER]),
+      case lists:member({USER, REF}, USER_LIST) of
         true ->
-          visits(USER_LIST -- [{USER_END, REF}]);
+          visits(USER_LIST -- [{USER, REF}]);
         false ->
           visits(USER_LIST)
       end

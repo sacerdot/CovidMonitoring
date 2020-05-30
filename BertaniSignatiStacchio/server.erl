@@ -10,28 +10,28 @@
 -author("Federico Bertani").
 
 %% API
--export([start/0, start_loop/1]).
+-export([start/0, server_loop/1]).
 
-start_loop(PLACES)->
+server_loop(PLACES)->
   timer:sleep(1000),
   io:format("SERVER PLACES ~p~n",[PLACES]),
   receive
   % remove from places list dead place
-    {'EXIT',PID_EXIT, _} ->
-      case lists:member(PID_EXIT,PLACES) of
-        true-> io:format("DEATH OF PLACE ~p ~n",[PID_EXIT]),
-          start_loop(PLACES--[PID_EXIT]);
+    {'EXIT',PLACE, _} ->
+      case lists:member(PLACE,PLACES) of
+        true->
+          io:format("DEATH OF PLACE ~p ~n",[PLACE]),
+          server_loop(PLACES--[PLACE]);
         false-> ok
       end;
   % a new place is registering
-    {new_place,NEW_PID} ->
-      link(NEW_PID),
-      io:format("NEW PLACE ~p REGISTRATION ~n",[NEW_PID]),
-      start_loop(PLACES ++ [NEW_PID]);
+    {new_place,P} ->
+      io:format("NEW PLACE ~p ~n",[P]),
+      server_loop(PLACES ++ [P]);
   % user requested list of places
     {get_places, PID_GETTER} ->
       PID_GETTER ! {places, PLACES},
-      start_loop(PLACES)
+      server_loop(PLACES)
   end.
 
 start() ->
@@ -39,4 +39,4 @@ start() ->
   % register central server name
   global:register_name(server,self()),
   process_flag(trap_exit, true),
-  start_loop([]).
+  server_loop([]).
