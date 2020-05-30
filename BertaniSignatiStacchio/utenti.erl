@@ -162,15 +162,14 @@ start() ->
   sleep(3000),
   io:format("Hospital ping result: ~p~n", [net_adm:ping(list_to_atom("ospedale@" ++ net_adm:localhost()))]),
   SERVER = global:whereis_name(server),
-  PM = spawn(?MODULE, places_manager, [[]]),
+  PM = spawn_link(?MODULE, places_manager, [[]]),
   register(places_manager, PM),
-  VM = spawn(?MODULE, visit_manager, [[], []]),
+  VM = spawn_link(?MODULE, visit_manager, [[], []]),
   register(visit_manager, VM),
-  TM = spawn(?MODULE, test_manager, [VM]),
+  TM = spawn_link(?MODULE, test_manager, [VM]),
   register(test_manager, TM),
   io:format("SPAWNED PALCES MANAGER ~p & VISIT MANAGER ~p & TEST MANAGER ~p~n", [PM, VM, TM]),
   ML = [PM, VM, TM],
-  [link(P_SP) || P_SP <- ML],
   receive
     {'EXIT', KP, REASON} ->
       [unlink(P) || P <- ML],
