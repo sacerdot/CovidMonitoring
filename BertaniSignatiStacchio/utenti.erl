@@ -9,7 +9,7 @@
 -module(utenti).
 -author("Lorenzo_Stacchio").
 %% API
--export([start/0, places_manager/1, get_places/2, test_manager/1, visit_manager/2]).
+-export([start/0, places_manager/1, test_manager/1, visit_manager/2]).
 -define(TIMEOUT_PM, 10000).
 -define(TIMEOUT_TM, 30000).
 -define(USER_PLACES_NUMBER, 3). % number of places a user keeps track
@@ -33,7 +33,7 @@ sleep_visit(T, PLACE, Ref) ->
   end.
 
 %-----------Topology maintenance protocol-----------
-
+get_random_elements([], LIST_USER) -> LIST_USER;
 get_random_elements(ACTIVE_PLACES, LIST_USER) ->
   case length(LIST_USER) < ?USER_PLACES_NUMBER of
     true ->
@@ -50,34 +50,11 @@ get_random_elements(ACTIVE_PLACES, LIST_USER) ->
     false -> LIST_USER
   end.
 
-
-% retrieve N places and add their PID to RET_LIST
-% answer to PID when completed
-get_places(RET_LIST, PID) ->
-  case length(RET_LIST) < ?USER_PLACES_NUMBER of
-    true ->
-      global:whereis_name(server) ! {get_places, self()},
-      receive
-        {places, ACTIVE_PLACES} ->
-          io:format("POLLING PLACES FROM SERVER ~p~n", [ACTIVE_PLACES]),
-          case length(ACTIVE_PLACES) >= ?USER_PLACES_NUMBER of
-            true ->
-              get_places(get_random_elements(ACTIVE_PLACES, RET_LIST), PID);
-            false ->
-              exit(normal)  % not enough active places, die
-          end
-      end;
-    false ->
-      PID ! {new_places, RET_LIST},
-      visit_manager ! {new_places, RET_LIST}
-  end.
-
-
 % responsible of keeping up to {USER_PLACES_NUMBER} places
 places_manager(USER_PLACES) ->
   process_flag(trap_exit, true),
   case length(USER_PLACES) < ?USER_PLACES_NUMBER of
-    true -> spawn_monitor(?MODULE, get_places, [USER_PLACES, self()]);
+    true -> global:whereis_name(server) ! {get_places, self()};
     false -> ok
   end,
   receive
@@ -91,9 +68,11 @@ places_manager(USER_PLACES) ->
         false ->
           places_manager(USER_PLACES)
       end;
-    {new_places, NEW_PLACES} ->
-      io:format("PM: places updated ~p, ~n", [NEW_PLACES]),
+    {places, ACTIVE_PLACES} ->
+      io:format("PM: POLLING PLACES FROM SERVER ~p~n", [ACTIVE_PLACES]),
+      NEW_PLACES = get_random_elements(ACTIVE_PLACES, USER_PLACES),
       [monitor(process, PID) || PID <- NEW_PLACES],
+      visit_manager ! {new_places, NEW_PLACES},
       places_manager(NEW_PLACES)
   end.
 
@@ -117,7 +96,7 @@ visit_manager(USER_PLACES, CONTACT_LIST) ->
         false -> ok
       end;
     {new_places, UL} ->
-      io:format("VM: places updated ~p ~n", [UL]),
+      io:format("VM: received places ~p ~n", [UL]),
       [monitor(process, PID) || PID <- UL],
       visit_manager(UL, CONTACT_LIST);
     {contact, PID_TOUCH} ->
