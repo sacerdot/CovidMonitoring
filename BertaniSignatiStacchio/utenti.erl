@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%%% @author Lorenzo_Stacchio
+%%% @author Lorenzo_Stacchio, Federico Bertani, Teresa Signati
 %%% @copyright (C) 2020, <COMPANY>
 %%% @doc
 %%%
@@ -29,7 +29,7 @@ sleep_visit(T, PLACE, Ref) ->
       PLACE ! {end_visit, self(), Ref},
       exit(quarantena)
   after
-    T -> ok
+    T*1000 -> ok
   end.
 
 %-----------Topology maintenance protocol-----------
@@ -63,7 +63,6 @@ places_manager(USER_PLACES) ->
         true ->
           io:format("PM: place death ~p,~p,~n", [PID, USER_PLACES--[PID]]),
           flush_new_places(),
-          %timer:sleep(?TIMEOUT_PM),
           places_manager(USER_PLACES--[PID]);
         false ->
           places_manager(USER_PLACES)
@@ -73,6 +72,7 @@ places_manager(USER_PLACES) ->
       NEW_PLACES = get_random_elements(ACTIVE_PLACES, USER_PLACES),
       [monitor(process, PID) || PID <- NEW_PLACES],
       visit_manager ! {new_places, NEW_PLACES},
+      timer:sleep(?TIMEOUT_PM),
       places_manager(NEW_PLACES)
   end.
 
@@ -140,7 +140,6 @@ test_manager(VISITOR_PID) ->
     false ->
       test_manager(VISITOR_PID)
   end.
-
 
 %-----------Monitor  protocol-----------
 start() ->

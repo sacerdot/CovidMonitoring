@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%%% @author Teresa Signati
+%%% @author Lorenzo_Stacchio, Federico Bertani, Teresa Signati
 %%% @copyright (C) 2020, <COMPANY>
 %%% @doc
 %%%
