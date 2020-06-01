@@ -6,14 +6,14 @@
 test(Probability) ->
   receive
     {test_me, PID} ->
-      io:format("[Ospedale] Utente ~p richiede un test~n", [PID]),
+      io:format("[Ospedale] Utente ~p ha richiesto un test~n", [PID]),
       case Probability() of
-        1 -> PID ! positive;
-        _ -> PID ! negative
+        true -> PID ! positive;
+        false -> PID ! negative
       end;
-      Msg ->
-        % Check unexpected message from other actors
-        io:format("[Ospedale] Messaggio non gestito ~p~n", [Msg])
+    Msg ->
+      % Check unexpected message from other actors
+      io:format("[Ospedale] Messaggio non gestito ~p~n", [Msg])
   end,
   test(Probability).
 

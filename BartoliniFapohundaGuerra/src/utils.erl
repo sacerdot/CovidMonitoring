@@ -1,5 +1,5 @@
 -module(utils).
--export([sleep/1, set_subtract/2, take_random/2, make_probability/1, check_service/1]).
+-export([sleep/1, set_subtract/2, get_random/2, make_probability/1, check_service/1]).
 
 sleep(T) ->
   receive after T -> ok end.
@@ -8,19 +8,22 @@ sleep(T) ->
 set_subtract(L1, L2) ->
   lists:filter(fun(X) -> not lists:member(X, L2) end, L1).
 
-take_random([], _) -> [];
-take_random(_, 0) -> [];
-take_random(L, N) ->
-  E = lists:nth(rand:uniform(length(L)), L),
-  R = take_random(set_subtract(L, [E]), N - 1),
-  [E | R].
+get_random(L, N) ->
+  F = fun(_, _, 0, Result) -> Result;
+    (_, [], _, Result) -> Result;
+    (_, _, Number, _) when Number < 0 -> [];
+    (Fun, List, Number, []) ->
+      E = lists:nth(rand:uniform(length(List)), List),
+      Fun(Fun, set_subtract(List, [E]), Number - 1, [E]);
+    (Fun, List, Number, Result) ->
+      E = lists:nth(rand:uniform(length(List)), List),
+      Fun(Fun, set_subtract(List, [E]), Number - 1, [E | Result])
+      end,
+  F(F, L, N, []).
 
 make_probability(X) ->
-  fun () ->
-    case (rand:uniform(100) =< X) of
-      true -> 1;
-      false -> 0
-    end
+  fun() ->
+    rand:uniform(100) =< X
   end.
 
 % Check server and ospedale
