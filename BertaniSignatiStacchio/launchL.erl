@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%%% @author Federico Bertani
+%%% @author Federico Bertani, Teresa Signati
 %%% @copyright (C) 2020, <COMPANY>
 %%% @doc
 %%%

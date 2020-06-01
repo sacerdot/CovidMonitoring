@@ -9,9 +9,9 @@
 -module(ospedale).
 -author("Federico Bertani").
 %% API
--export([start/0,start_loop/0]).
+-export([start/0, hospital_loop/0]).
 
-start_loop()->
+hospital_loop()->
   receive
   % an user wants to be tested
     {test_me, PID} ->
@@ -23,10 +23,10 @@ start_loop()->
         false ->
           PID ! negative
       end,
-      start_loop()
+      hospital_loop()
   end.
 
 start() ->
   io:format("Hospital started~n"),
   global:register_name(ospedale,self()),
-  start_loop().
+  hospital_loop().
