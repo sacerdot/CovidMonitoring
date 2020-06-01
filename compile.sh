@@ -1,11 +1,17 @@
 #!/bin/bash
 
-files_list=(test hospital server usersnew util places)
+files_list=(hospital server usersnew util places)
+
+function rm_file(){
+  if [ -f "$1" ]; then
+    rm $1
+  fi
+}
 
 for file in ${files_list[@]}
 do
   echo Removing $file
-  rm $file.beam
+  rm_file $file.beam
 done
 
 for file in ${files_list[@]}
@@ -13,3 +19,5 @@ do
   echo Compiling $file
   erl -compile $file
 done
+
+#erlc ./places.erl ./server.erl ./usersnew.erl ./hospital.erl ./util.erl

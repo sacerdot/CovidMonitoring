@@ -1,14 +1,14 @@
 -module(places).
--export([place_init/0]).
+-export([start/0]).
 
 
 
-contacts(_, []) -> ok; %qualcosa per ritornare ok?
-contacts(PID, [{FirstPid, _}|OtherVistiors]) ->  %HO TOLTO I REF
+handler_contacts(_, []) -> ok;
+handler_contacts(PID, [{FirstPid, _}| OtherVisitors]) ->  %HO TOLTO I REF
 %contacts(PID, [FirstPid|OtherVistiors]) ->  %HO TOLTO I REF
     FirstPid ! {contact, PID},
     PID ! {contact, FirstPid},
-    contacts(PID, OtherVistiors).
+    handler_contacts(PID, OtherVisitors).
 
 
 place(Visitors) ->
@@ -22,22 +22,25 @@ place(Visitors) ->
                     exit(normal);
                 false -> ok
             end,
-            case util:probability(4) of
-                true -> contacts(PID_VISITOR, Visitors);
+            case util:probability(25) of
+                true -> handler_contacts(PID_VISITOR, Visitors);
+                %TODO ipotesi: [send_contact_msg(Pid1, PID_VISITOR) | {Pid1, _} <- Visitors ]
                 false -> ok
             end,
             place([{PID_VISITOR, REF}|Visitors]);
-            %place([PID_VISITOR|Visitors]);
 
         {end_visit, PID_VISITOR, REF} ->
-            %io:format("è finita la vista di ~p in ~p con ref ~p ~n", [PID_VISITOR, self(), REF]),
             place(Visitors -- [{PID_VISITOR, REF}])
-            %place(Visitors -- [PID_VISITOR])
+
     end.
 
 place_init() ->
-    %comunica al server la propria esistenza
-    Pid_Server=global:whereis_name(server),
-    link(Pid_Server),
-    Pid_Server ! {new_place, self()},
+    ServerPid =global:whereis_name(server),
+    link(ServerPid),
+    ServerPid ! {msg_ping, "ciao da luogo", self()},
+    ServerPid ! {new_place, self()},
     place([]).
+
+start() ->
+    io:format("CIAO SONO IL GESTORE DEI LUOGHI~n"),
+    [ spawn(fun place_init/0) || _ <- lists:seq(1,10) ].

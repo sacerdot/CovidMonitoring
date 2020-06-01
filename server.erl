@@ -1,14 +1,18 @@
 -module(server).
--export([server_init/0, server/1]).
+-export([server_init/0, server/1, start/0]).
 
 
 
 server(Places) ->
     receive
+        {msg_ping, Msg, Pid} ->
+            io:format("~p from ~p~n", [Msg, Pid]),
+            server(Places);
+
         {new_place, Pid_Place} ->
             io:format("New Place ~p~n",[Pid_Place]),
             monitor(process,Pid_Place),
-            %Pid_Place ! {okay},                  %no recive in places
+            %Pid_Place ! {okay},                  %no receive in places
             server([Pid_Place|Places]);
 
         {get_places, Pid_User} ->
@@ -31,7 +35,15 @@ server(Places) ->
     end.
 
 server_init() ->
-    %ServerPid = spawn(?MODULE, server, [[]]),
-    ServerPid=spawn(fun() -> process_flag(trap_exit, true), server([]) end),
-    global:register_name(server,ServerPid),
-    io:format("Pid Server ~p~n", [ServerPid]).
+    process_flag(trap_exit, true),
+    global:register_name(server, self()),
+    io:format("Pid Server ~p~n", [self()]),
+    server([]).
+
+%    ServerPid=spawn(fun() -> process_flag(trap_exit, true), server([]) end),
+%    global:register_name(server,ServerPid),
+%    io:format("Pid Server ~p~n", [ServerPid]).
+
+start() ->
+    io:format("CIAO SONO IL SERVER~n"),
+    server_init().

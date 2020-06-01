@@ -1,40 +1,43 @@
 -module(usersnew).
--export([users_init/0, visit/2, getTested/1, askMorePlaces/1]).
+-export([start/0]).
 
+start() ->
+    io:format("CIAO SONO IL GESTORE DEI USER~n"),
+    [ spawn(fun users_init/0) || _ <- lists:seq(1,10) ].
 
 users_init() ->
     process_flag(trap_exit, true),
-	io:format("New User ~p~n",[self()]),
+    io:format("New User ~p~n",[self()]),
 
     ServerPid = global:whereis_name(server),
-	link(ServerPid),
+	  link(ServerPid),
+    ServerPid ! {msg_ping, "ciao da utente", self()},
     HospitalPid = global:whereis_name(hospital),
     GetPids = setGlobal(self(), ServerPid, HospitalPid),
 
     getPlaces(GetPids),
 
     PidVisit = spawn_link(fun() -> process_flag(trap_exit, true), visit(GetPids,[]) end),
-    PidTester = spawn_link(?MODULE, getTested, [GetPids]),
-    PidAskPlaces = spawn_link(?MODULE, askMorePlaces, [GetPids]),
-    
- 	user([], PidVisit, PidAskPlaces, GetPids). 
+    PidTester = spawn_link(fun () -> getTested(GetPids) end),
+    PidAskPlaces = spawn_link(fun() -> askMorePlaces(GetPids) end),
+
+ 	  user([], PidVisit, PidTester, PidAskPlaces, GetPids).
 
 
-user(UPlaces, PidVisit, PidAskPlaces, GetPids) ->
+user(UPlaces, PidVisit, PidTester, PidAskPlaces, GetPids) ->
     receive
         {places, Places} ->
             case length(Places) < 3 of
                 true -> PidAskPlaces ! {ask_more_places};
                 false -> ok
             end,
-            ChoosenPlaces = choosePlaces(Places -- UPlaces, UPlaces, 3 - length(UPlaces)),
-            PidVisit ! {place_list, ChoosenPlaces},
-            user(ChoosenPlaces, PidVisit, PidAskPlaces, GetPids);
+            ChosenPlaces = choosePlaces(Places -- UPlaces, UPlaces, 3 - length(UPlaces)),
+            PidVisit ! {place_list, ChosenPlaces},
+            user(ChosenPlaces, PidVisit, PidTester, PidAskPlaces, GetPids);
 
         {contact, PidUContact} ->
             link(PidUContact),
-            user(UPlaces, PidVisit, PidAskPlaces, GetPids);
-
+            user(UPlaces, PidVisit, PidTester, PidAskPlaces, GetPids);
 
         {test_result, positive} ->
             io:format("Sono positivo (~p)~n", [self()]), %togliere stampa pid
@@ -42,29 +45,34 @@ user(UPlaces, PidVisit, PidAskPlaces, GetPids) ->
             
         {test_result, negative} -> 
             io:format("Sono negativo (~p)~n", [self()]), %togliere stampa pid
-            user(UPlaces, PidVisit, PidAskPlaces, GetPids);
-
-        % {test_result, Result} ->
-        %     case Result of
-        %         positive ->
-        %             io:format("Sono positivo (~p)~n", [self()]), %togliere stampa pid
-        %             exit(positive);
-        %         negative ->
-        %             io:format("Sono negativo (~p)~n", [self()]), %togliere stampa pid
-        %             user(UPlaces, PidVisit, PidAskPlaces, GetPids)
-        %     end;
+            user(UPlaces, PidVisit, PidTester, PidAskPlaces, GetPids);
 
         {'DOWN', _ , process, PidPlace, _} -> %{'DOWN', Reference, process, Pid, Reason} ->
             getPlaces(GetPids),
-            user(UPlaces -- [PidPlace], PidVisit, PidAskPlaces, GetPids);
-
+            user(UPlaces -- [PidPlace], PidVisit, PidTester, PidAskPlaces, GetPids);
 
         {'EXIT', _ , Reason} when Reason =:= positive; Reason =:= quarantena-> 
-            io:format("Entro in quarantena~n"),
+            io:format("Entro in quarantena ~p~n",[self()]),
             exit(quarantena);
 
-        {'EXIT', _ , normal} -> 
-             user(UPlaces, PidVisit, PidAskPlaces, GetPids);
+        {'EXIT', Pid , normal} ->
+            io:format("Exit normal by ~p~n", [Pid]),
+            user(UPlaces, PidVisit, PidTester, PidAskPlaces, GetPids);
+
+        {'EXIT', PidVisit, _ } ->
+            NewPidVisit = spawn_link(fun() -> process_flag(trap_exit, true), visit(GetPids, UPlaces) end),
+            io:format("Not regular death of Visit~n"),
+            user(UPlaces, NewPidVisit, PidTester, PidAskPlaces, GetPids);
+
+        {'EXIT', PidTester, _ } ->
+            NewPidTester = spawn_link(fun () -> getTested(GetPids) end),
+            io:format("Not regular death of Tester~n"),
+            user(UPlaces, PidVisit, NewPidTester, PidAskPlaces, GetPids);
+
+        {'EXIT', PidAskPlaces, _ } ->
+            NewPidAskPlaces = spawn_link(fun() -> askMorePlaces(GetPids) end),
+            io:format("Not regular death of AskPlaces~n"),
+            user(UPlaces, PidVisit, PidTester, NewPidAskPlaces, GetPids);
         
         {'EXIT', _ , Reason} ->     
             io:format("L'utente sta per mprire per ragione ~p~n", [Reason]), 
@@ -74,11 +82,11 @@ user(UPlaces, PidVisit, PidAskPlaces, GetPids) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ATTORE: VISITA %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-visit(GetPids, []) -> receive {place_list, ChoosenPlaces} -> visit(GetPids, ChoosenPlaces) end;
+visit(GetPids, []) -> receive {place_list, ChosenPlaces} -> visit(GetPids, ChosenPlaces) end;
 visit(GetPids, ListPlaces) ->
     PidUser = maps:get(user, GetPids(visit)),
-    receive {place_list, ChoosenPlaces} ->
-        visit(GetPids, ChoosenPlaces)
+    receive {place_list, ChosenPlaces} ->
+        visit(GetPids, ChosenPlaces)
     after util:rand_in_range(3000, 5000) -> ok end, %se arrivano i messaggi prima che io mi metto in attesa di riceverli, che succede?
     Ref = make_ref(),
     PidChoice = util:rand_in_list(ListPlaces),
@@ -96,7 +104,7 @@ visit(GetPids, ListPlaces) ->
 
 getTested(GetPids) ->
     util:sleep(30000),
-    case util:probability(4) of
+    case util:probability(25) of
         true ->
             PidHospital = maps:get(hospital, GetPids(get_tested)),
             PidUser = maps:get(user, GetPids(get_tested)),
@@ -138,6 +146,7 @@ setGlobal(UsrPid, ServerPid, HospitalPid) ->
         end 
     end. 
 
+%TODO aggiungere caso in cui il terzo campo sia negativo?
 choosePlaces(_, ReturnPlaces, 0) -> ReturnPlaces;
 choosePlaces([], ReturnPlaces, _) -> ReturnPlaces;
 choosePlaces(ListPlaces, ReturnPlaces, N) ->
