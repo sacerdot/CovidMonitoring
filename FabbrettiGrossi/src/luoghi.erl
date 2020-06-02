@@ -40,7 +40,7 @@ update_visitors(VisitorsList) ->
     {begin_visit, PidVisitor, Ref} ->
       self() ! {debug, {begin_visit, PidVisitor, VisitorsList}},
       find_contact(PidVisitor, VisitorsList),
-      place_manager(),
+      place_chance_to_close(),
       update_visitors([{Ref, PidVisitor} | VisitorsList]);
 
     {end_visit, PidVisitor, Ref} ->
@@ -76,7 +76,7 @@ find_contact(NewVisitor, Visitors) ->
 %%% @end
 %%%-------------------------------------------------------------------
 
-place_manager() ->
+place_chance_to_close() ->
   case rand:uniform(10) of
     10 ->
       exit(normal);
