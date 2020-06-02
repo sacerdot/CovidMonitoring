@@ -90,7 +90,7 @@ place_manager(Manager, PidObserver) ->
       [ PidObserver ! {start_monitor, PlacePid} || PlacePid <- PlacesUpdated],
       update_status(Manager, {update_places, PlacesUpdated ++ Places})
   end,
-  sleep(2),
+  sleep(10),
   place_manager(Manager, PidObserver).
 
 %%--------------------------------------------------------------------
@@ -131,7 +131,7 @@ do_test(Manager) ->
     _ ->
       Manager ! {debug, no_test}
   end,
-  sleep(10),
+  sleep(30),
   do_test(Manager).
 
 %%--------------------------------------------------------------------
