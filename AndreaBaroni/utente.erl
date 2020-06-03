@@ -20,38 +20,45 @@ fai_test(PidUtente) ->
     test(PidUtente),
     timer:sleep(3000),
     fai_test(PidUtente).
-
-utente(PidServer)->
+%viene mandato un messaggio di uscita anticipata e si attende la risposta per essere sicuri di uscire
+%da un eventuale luogo prima di uscire
+esciluogo(PidPortineria) -> 
+    PidPortineria ! {uscita_anticipata,self()},
     receive
-        {'EXIT',PidServer,_Reason}-> %messaggio di uscita dal server
-            io:format("E ' morto il server esco. ~n "),
+        ack -> ok        
+    end.
+
+utente(PidSupervisore,PidPortineria)->
+    receive
+        {'EXIT',PidSupervisore,_Reason}-> %messaggio di uscita dal supervisore
+            io:format("E ' morto il supervisore esco. ~n "),
             exit(errore);
         {contact,Pid} ->
             io:format("Sono ~p ho linkato ~p  ~n",[self(),Pid]),
             link(Pid),
-            utente(PidServer);
+            utente(PidSupervisore,PidPortineria);
         {'EXIT',_Pid,quarantena}->
-            io:format("Esco vado in quarantena sono ~p  ~n",[self()]),exit(quarantena);
+            io:format("Esco vado in quarantena sono ~p  ~n",[self()]),esciluogo(PidPortineria),exit(quarantena);
         {'EXIT',_Pid,positivo}->
-            io:format("Esco sono in contatto con positivo sono ~p   ~n",[self()]),exit(quarantena);
+            io:format("Esco sono in contatto con positivo sono ~p   ~n",[self()]),esciluogo(PidPortineria),exit(quarantena);
         positive->
-            io:format("Esco sono positivo sono l'utente ~p  ~n",[self()]),exit(positivo);
+            io:format("Esco sono positivo sono l'utente ~p  ~n",[self()]),esciluogo(PidPortineria),exit(positivo);
         
         {'EXIT',_Pid,noproc}->
             % In questo caso e in quello sotto si
             % viene linkati ad un utente che non esiste in quanto
             % l'utente in questione potrebbe essere uscito
-            utente(PidServer);
+            utente(PidSupervisore,PidPortineria);
         {'EXIT',_Pid,noconnection}->
-            utente(PidServer);          
+            utente(PidSupervisore,PidPortineria);          
         {'EXIT',_Pid,Reason} ->
             io:format("Uscita anomala io sono l'utente ~p , ragione:  ~p  ~n",[self(),Reason]),exit(Reason)
     end.
 
-init_utente(PidServer)->
-    process_flag(trap_exit,true),utente(PidServer).
+init_utente(PidSupervisore,PidPortineria)->
+    process_flag(trap_exit,true),utente(PidSupervisore,PidPortineria).
 
-remove_dups([])    -> []; % rimuove i duplicati da una lista
+remove_dups([])    -> []; % rimuove i duplicati da una lista fonte https://stackoverflow.com/a/22133154
 remove_dups([H|T]) -> [H | [X || X <- remove_dups(T), X /= H]].
 
 integra(Luoghi,_,0)->Luoghi;
@@ -119,43 +126,69 @@ init_lista(PidServer)->
     spawn_link(fun()->notifica(S) end), 
     aggiorna(L,PidServer).
 %------- funzioni per gestire la visita
-inizia_visita(L,PidUtente)->
+
+% gestisce le entrate e le uscite ovvero si occupa di mandare messaggi 
+% di entrata, uscita o uscita anticipata da un luogo
+% l'uscita anticipata si verifica nel caso un utente sia risultato positivo o sia entrato in contatto con un positivo o vada in quarantena
+portineria(LuogoCorrente)-> 
+    receive
+        {LUOGO,begin_visit, PidUtente, REF} ->
+            LUOGO ! {begin_visit, PidUtente, REF},
+            portineria({LUOGO,begin_visit, PidUtente, REF});
+
+        {LUOGO,end_visit, PidUtente, REF}->
+            LUOGO ! {end_visit, PidUtente, REF},
+            portineria({}) ;
+        
+        {uscita_anticipata, Pid} ->
+            case LuogoCorrente of
+                {LUOGO,begin_visit, PidUtente, REF} ->
+                    LUOGO ! {end_visit, PidUtente, REF},
+                    io:format("Mandata richiesta di uscita anticipata ~n"),
+                    Pid ! ack,
+                    portineria({}) ;
+                _ -> Pid ! ack,
+                    portineria({})                    
+            end                    
+    end.
+
+inizia_visita(L,PidUtente,PidPortineria)->
     case erlang:length(L) of
         0 -> io:format("Non riesco a visitare non ci sono luoghi ~n");
         _ -> %c'e' almeno un elemento nella lista
             REF = erlang:make_ref(),
             LUOGO = lists:nth(rand:uniform(erlang:length(L)),L),
-            LUOGO ! {begin_visit, PidUtente, REF},
+            PidPortineria ! {LUOGO,begin_visit, PidUtente, REF},
             io:format("Sto iniziando la visita del  luogo ~p sono l'utente ~p~n ",[LUOGO,PidUtente]),
             timer:sleep( (rand:uniform(6)+4)*1000 ), %prosegue la visita per 5 - 10 secondi
-            io:format("Ho finito la visita del  luogo ~p sono l'utente ~p~n ",[LUOGO,PidUtente]),
-            
-            LUOGO ! {end_visit, PidUtente, REF}        
+            io:format("Ho finito la visita del  luogo ~p sono l'utente ~p~n ",[LUOGO,PidUtente]),    
+            PidPortineria ! {LUOGO,end_visit, PidUtente, REF}        
     end.
 
-visita(GestoreLista,PidUtente)->
+visita(GestoreLista,PidUtente,PidPortineria)->
     GestoreLista ! {richiedi,self()},
     receive
-        {L,lista_luoghi} -> inizia_visita(L,PidUtente)            
+        {L,lista_luoghi} -> inizia_visita(L,PidUtente,PidPortineria)            
     after
         5000 -> io:format("Non riesco ad avere la lista dei luoghi riprovo ~n "),
-        visita(GestoreLista,PidUtente)            
+        visita(GestoreLista,PidUtente,PidPortineria)            
     end.
 
-init_visita(GestoreLista,PidUtente)->
-    visita(GestoreLista,PidUtente),
+init_visita(GestoreLista,PidUtente,PidPortineria)->
+    visita(GestoreLista,PidUtente,PidPortineria),
     timer:sleep((rand:uniform(3)+2)*1000), %ogni 3-5s (scelta casuale) un utente visita uno dei luoghi nella sua lista
-    init_visita(GestoreLista,PidUtente).
+    init_visita(GestoreLista,PidUtente,PidPortineria).
 
-crea_utente()->
-    process_flag(trap_exit,true),
+crea_utente()->   
     PidServer = global:whereis_name(server),
+    S = self(),
     case PidServer of
         Pid when erlang:is_pid(Pid) ->
             link(Pid),
-            U = spawn_link(fun()-> init_utente(Pid) end )  ,
+            PidPortineria = spawn_link(fun () -> portineria({}) end ),
+            U = spawn_link(fun()-> init_utente(S,PidPortineria) end )  ,
             L = spawn_link(fun()-> init_lista(Pid) end)  ,
-            spawn_link(fun()-> init_visita(L,U) end),
+            spawn_link(fun()-> init_visita(L,U,PidPortineria) end),
             spawn_link(fun()-> fai_test(U) end),
             receive
                 {'EXIT',_Pid,Reason} ->
@@ -167,6 +200,6 @@ crea_utente()->
             crea_utente()
     end.
 
-start()->
-    [spawn(fun()->crea_utente() end) || _ <- lists:seq(1,5) ].
+start()-> %vengono creati 5 utenti
+    [spawn(fun()-> process_flag(trap_exit,true),crea_utente() end) || _ <- lists:seq(1,5) ].
     
