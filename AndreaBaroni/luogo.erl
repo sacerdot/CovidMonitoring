@@ -2,7 +2,7 @@
 -export([start/0]).
 
 rilevamento_contatti(Nuovo,Lista)->    
-    D = rand:uniform(1),
+    D = rand:uniform(4),
     case Lista of 
         [Testa | Coda] when D =:=1 ->  
             Nuovo ! {contact,Testa},    
