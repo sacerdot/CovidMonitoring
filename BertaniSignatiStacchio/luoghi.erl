@@ -10,7 +10,7 @@
 -author("TeresaSignati").
 
 %% API
--export([start/0, visits/1, touch/2]).
+-export([start/0, visits/1]).
 -define(DEATH_PROB, 10).
 
 %-----------Initialization protocol-----------
@@ -31,13 +31,13 @@ visits(USER_LIST) ->
           io:format("CLOSED PLACE ~p~n", [self()]),
           exit(normal);
         false ->
-          % ------- contact tracing protocol ------------
-          [case rand:uniform(100) =< 25 of
+          % ----- Contact tracing protocol -----
+          [case rand:uniform(100) =< 100 of
             true ->
-              element(1,USERC) ! {contact, USER},
-              USER ! {contact, element(1,USERC)};
+              element(1,UC) ! {contact, USER},
+              USER ! {contact, element(1,UC)};
             false ->ok
-            end || USERC <- USER_LIST],
+            end || UC <- USER_LIST],
           visits(USER_LIST ++ [{USER, REF}])
       end;
     {end_visit, USER, REF} ->
