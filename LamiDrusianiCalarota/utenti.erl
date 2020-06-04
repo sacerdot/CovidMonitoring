@@ -119,12 +119,12 @@ luogo(Server,Vis,Luoghi) ->
     L = receive 
         {places,PidList} -> aggiungiEl(Luoghi,PidList--Luoghi,3 - length(Luoghi)) %costruisco la lista attuale dei luoghi
     end,
+    io:format("Lista Luoghi: utente ~p è ~p~n",[self(),L]),
     Vis ! {nuovaLista, L}, %mando la lista dei luoghi che posso visitare all'attore Vis  
     receive  %quando il luogo muore, va richiamata la funzione luogo sulla lista meno il luogo morto
-        {'DOWN', _, process, PidLuogo, REASON} -> 
-            io:format("Luogo ~p è morto per la ragione: ~p~n", [PidLuogo, REASON]),
-            luogo(Server, Vis, Luoghi--[PidLuogo])
-    after timer:seconds(10) -> luogo(Server, Vis, Luoghi)
+        {'DOWN', _, process, PidLuogo, _} -> 
+            luogo(Server, Vis, L--[PidLuogo])
+    after timer:seconds(10) -> luogo(Server, Vis, L)
     end.
 
 
