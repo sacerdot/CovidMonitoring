@@ -1,6 +1,7 @@
 -module(ospedale).
 -export([start/0]).
 
+
 % Protocollo di test
 test() -> 
     receive
@@ -11,11 +12,13 @@ test() ->
             end
     end.
 
+
 % Creazione Ospedale
 ospedale()->
     global:register_name(hospital,self()),
     test().
 
-start() ->
-    spawn(fun ospedale/0 ).
 
+% Avvio ospedale in attore
+start() ->
+    spawn(fun ospedale/0).
