@@ -149,15 +149,11 @@ start() ->
   io:format("Spawned PM ~p & VM ~p & TM ~p~n", [PM, VM, TM]),
   ML = [PM, VM, TM],
   receive
-    {'EXIT', KP, REASON} ->
-      [unlink(P) || P <- (ML -- [KP])],
-      [exit(P, kill) || P <- (ML -- [KP])],
-      % if the user is in 'quarantena' or the server dies, kill everything
-      case (REASON == quarantena) or (KP == SERVER) of
-        true ->
-          io:format("The user is dead ~n");
-        false ->
-          io:format("Restart user ~n"),
-          start()
-      end
+    {'EXIT', _, quarantena} -> io:format("The user is dead ~n");
+    {'EXIT', SERVER, _} -> io:format("The server is dead ~n");
+    {'EXIT', DM, _} ->
+      [unlink(P) || P <- (ML -- [DM])],
+      [exit(P, kill) || P <- (ML -- [DM])],
+      io:format("Restart user ~n"),
+      start()
   end.
