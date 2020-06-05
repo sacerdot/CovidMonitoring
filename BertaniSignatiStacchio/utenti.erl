@@ -108,7 +108,7 @@ visit_manager(USER_PLACES) ->
       timer:sleep(1000),
       visit_manager(USER_PLACES);
     false ->
-      timer:sleep(2 + rand:uniform(3)),
+      timer:sleep((2 + rand:uniform(3))*1000),
       Ref = make_ref(),
       % choose one random place to visit
       P = lists:nth(rand:uniform(length(USER_PLACES)), USER_PLACES),
