@@ -9,7 +9,7 @@
 -module(utenti).
 -author("Lorenzo_Stacchio").
 %% API
--export([start/0, places_manager/1, test_manager/1, visit_manager/2]).
+-export([start/0, places_manager/1, test_manager/0, visit_manager/1]).
 -define(TIMEOUT_PM, 10000).
 -define(TIMEOUT_TM, 30000).
 -define(USER_PLACES_NUMBER, 3). % number of places a user keeps track
@@ -73,56 +73,53 @@ places_manager(USER_PLACES) ->
       [monitor(process, PID) || PID <- NEW_PLACES],
       visit_manager ! {new_places, NEW_PLACES},
       timer:sleep(?TIMEOUT_PM),
-      places_manager(NEW_PLACES)
+      places_manager(NEW_PLACES);
+    {'EXIT', _ , _} -> exit(death)
   end.
 
 %-----------Visit protocol-----------
-visit_manager(USER_PLACES, CONTACT_LIST) ->
+visit_manager(USER_PLACES) ->
   process_flag(trap_exit, true),
   receive
-    {'EXIT', PID, _} ->
-      case (lists:member(PID, CONTACT_LIST)) of
-        true ->
-          io:format("~p enters in 'quarantena' because of ~p~n", [self(),PID]),
-          exit(quarantena);
-        false -> ok
-      end;
+    {'EXIT', _ , _} ->
+      io:format("~p dies ~n", [self()]),
+      exit(quarantena);
     {'DOWN', _, process, PLACE, _} ->
       case lists:member(PLACE, USER_PLACES) of % a user place died
         true ->
           io:format("VM: place death ~p,~p, ~n", [PLACE, USER_PLACES--[PLACE]]),
           flush_new_places(),
-          visit_manager(USER_PLACES--[PLACE], CONTACT_LIST);
+          visit_manager(USER_PLACES--[PLACE]);
         false -> ok
       end;
     {new_places, UL} ->
       io:format("VM: received places ~p ~n", [UL]),
       [monitor(process, PID) || PID <- UL],
-      visit_manager(UL, CONTACT_LIST);
+      visit_manager(UL);
     {contact, PID_TOUCH} ->
       io:format("CONTACT BETWEEN ~p & ~p ~n", [self(), PID_TOUCH]),
       link(PID_TOUCH),
-      visit_manager(USER_PLACES, CONTACT_LIST ++ [PID_TOUCH])
+      visit_manager(USER_PLACES)
   after 0 ->
     ok
   end,
   case length(USER_PLACES) == 0 of
     true ->
       timer:sleep(1000),
-      visit_manager(USER_PLACES, CONTACT_LIST);
+      visit_manager(USER_PLACES);
     false ->
-      timer:sleep(2 + rand:uniform(3)),
+      timer:sleep((2 + rand:uniform(3))*1000),
       Ref = make_ref(),
       % choose one random place to visit
       P = lists:nth(rand:uniform(length(USER_PLACES)), USER_PLACES),
       P ! {begin_visit, self(), Ref},
       sleep_visit(4 + rand:uniform(6), P, Ref), % visit duration 5-10s
       P ! {end_visit, self(), Ref},
-      visit_manager(USER_PLACES, CONTACT_LIST)
+      visit_manager(USER_PLACES)
   end.
 
 %-----------Test protocol-----------
-test_manager(VISITOR_PID) ->
+test_manager() ->
   timer:sleep(?TIMEOUT_TM),
   case (rand:uniform(4) == 1) of
     true ->
@@ -131,14 +128,14 @@ test_manager(VISITOR_PID) ->
       receive
         positive ->
           io:format("TEST RESULT: ~p positive -> 'quarantena'~n", [self()]),
-          VISITOR_PID ! {exit_quarantena},
+          visit_manager ! {exit_quarantena},
           exit(quarantena);
         negative ->
           io:format("TEST RESULT: ~p negative ~n", [self()]),
-          test_manager(VISITOR_PID)
+          test_manager()
       end;
     false ->
-      test_manager(VISITOR_PID)
+      test_manager()
   end.
 
 %-----------Monitor  protocol-----------
@@ -146,24 +143,19 @@ start() ->
   timer:sleep(3000),
   io:format("Hospital ping result: ~p~n", [net_adm:ping(list_to_atom("ospedale@" ++ net_adm:localhost()))]),
   SERVER = global:whereis_name(server),
+  monitor(process,SERVER),
   PM = spawn_link(?MODULE, places_manager, [[]]),
-  register(places_manager, PM),
-  VM = spawn_link(?MODULE, visit_manager, [[], []]),
+  VM = spawn_link(?MODULE, visit_manager, [[]]),
   register(visit_manager, VM),
-  TM = spawn_link(?MODULE, test_manager, [VM]),
-  register(test_manager, TM),
+  TM = spawn_link(?MODULE, test_manager, []),
   io:format("Spawned PM ~p & VM ~p & TM ~p~n", [PM, VM, TM]),
   ML = [PM, VM, TM],
   receive
-    {'EXIT', KP, REASON} ->
-      [unlink(P) || P <- (ML -- [KP])],
-      [exit(P, kill) || P <- (ML -- [KP])],
-      % if the user is in 'quarantena' or the server dies, kill everything
-      case (REASON == quarantena) or (KP == SERVER) of
-        true ->
-          io:format("The user is dead ~n");
-        false ->
-          io:format("Restart user ~n"),
-          start()
-      end
+    {'EXIT', _, quarantena} -> io:format("The user is dead ~n");
+    {'DOWN', _, process, SERVER, _} -> io:format("The server is dead ~n");
+    {'EXIT', DM, _} ->
+      [unlink(P) || P <- (ML -- [DM])],
+      [exit(P, kill) || P <- (ML -- [DM])],
+      io:format("Restart user ~n"),
+      start()
   end.

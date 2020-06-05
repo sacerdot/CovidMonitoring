@@ -20,6 +20,7 @@ launch () ->
   spawn(fun()->os:cmd('xterm -hold -e "erl -sname luoghi -s luoghi start"') end),
   spawn(fun()->os:cmd('xterm -hold -e "erl -sname luoghi2 -s luoghi start"') end),
   spawn(fun()->os:cmd('xterm -hold -e "erl -sname luoghi3 -s luoghi start"') end),
-  spawn(fun()->os:cmd('xterm -hold -e "erl -sname utenti -s utenti start"') end).
+  spawn(fun()->os:cmd('xterm -hold -e "erl -sname utenti -s utenti start"') end),
+  spawn(fun()->os:cmd('xterm -hold -e "erl -sname utenti2 -s utenti start"') end).
 
 

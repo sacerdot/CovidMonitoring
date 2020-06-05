@@ -10,7 +10,7 @@
 -author("TeresaSignati").
 
 %% API
--export([start/0, visits/1, touch/2]).
+-export([start/0, visits/1]).
 -define(DEATH_PROB, 10).
 
 %-----------Initialization protocol-----------
@@ -31,7 +31,13 @@ visits(USER_LIST) ->
           io:format("CLOSED PLACE ~p~n", [self()]),
           exit(normal);
         false ->
-          spawn(?MODULE, touch, [USER, USER_LIST]),
+          % ----- Contact tracing protocol -----
+          [case rand:uniform(100) =< 25 of
+            true ->
+              element(1,UC) ! {contact, USER},
+              USER ! {contact, element(1,UC)};
+            false ->ok
+            end || UC <- USER_LIST],
           visits(USER_LIST ++ [{USER, REF}])
       end;
     {end_visit, USER, REF} ->
@@ -43,17 +49,3 @@ visits(USER_LIST) ->
           visits(USER_LIST)
       end
   end.
-
-%-----------Contact tracing protocol----------
-
-% for each user in the place create contact with probability of 25%
-touch(_, []) -> done;
-touch(USER, [H | T]) ->
-  {P, _} = H,
-  case rand:uniform(100) =< 25 of
-    true ->
-      P ! {contact, USER},
-      USER ! {contact, P};
-    false ->ok
-  end,
-  touch(USER, T).
