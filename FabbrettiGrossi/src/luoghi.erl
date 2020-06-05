@@ -33,19 +33,19 @@ luogo() ->
 
 update_visitors(VisitorsList) ->
   receive
-    {debug, Message} ->
-      debug(Message),
-      update_visitors(VisitorsList);
-
     {begin_visit, PidVisitor, Ref} ->
       self() ! {debug, {begin_visit, PidVisitor, VisitorsList}},
-      find_contact(PidVisitor, VisitorsList),
-      place_manager(),
+      find_contacts(PidVisitor, VisitorsList),
+      place_closing(),
       update_visitors([{Ref, PidVisitor} | VisitorsList]);
 
     {end_visit, PidVisitor, Ref} ->
       self() ! {debug, {end_visit, PidVisitor, VisitorsList}},
       update_visitors(VisitorsList -- [{Ref, PidVisitor}]);
+
+    {debug, Message} ->
+      debug(Message),
+      update_visitors(VisitorsList);
 
     Other ->
       io:format("Messaggio inatteso: ~p~n", [Other]),
@@ -61,7 +61,7 @@ update_visitors(VisitorsList) ->
 %%% @end
 %%%-----------------------------------------------------------------------
 
-find_contact(NewVisitor, Visitors) ->
+find_contacts(NewVisitor, Visitors) ->
   [     case rand:uniform(4) of
           1 ->
             NewVisitor ! {contact, PidVisitor},
@@ -76,7 +76,7 @@ find_contact(NewVisitor, Visitors) ->
 %%% @end
 %%%-------------------------------------------------------------------
 
-place_manager() ->
+place_closing() ->
   case rand:uniform(10) of
     10 ->
       exit(normal);

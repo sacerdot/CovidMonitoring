@@ -14,7 +14,9 @@ ospedale()->
 start()->
     spawn(
         fun()->
-            global:register_name(hospital,self()),
-            ospedale()
+            case global:register_name(hospital,self()) of
+                yes -> ospedale();
+                no -> io:format("Errore nel registrare l'ospedale ~n"),exit(errore)                                      
+            end
         end
     ).

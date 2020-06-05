@@ -31,6 +31,10 @@ update_places(PidList) ->
     {new_place, PidPlace} ->
       update_places([PidPlace | PidList]);
 
+    {get_places, Pid} ->
+      Pid ! {places, PidList},
+      update_places(PidList);
+
     {'EXIT', Pid, normal} ->
       io:format("Sto per rimuovere ~p dalla lista dei luoghi~n", [Pid]),
       update_places(PidList -- [Pid]);
@@ -46,10 +50,6 @@ update_places(PidList) ->
     {'EXIT', Pid, Reason} ->
       io:format("~p exit because ~p~n", [Pid, Reason]),
       update_places(PidList -- [Pid]);
-
-    {get_places, Pid} ->
-      Pid ! {places, PidList},
-      update_places(PidList);
 
     Other ->
       io:format("Messaggio inaspettato: ~p~n", [Other]),

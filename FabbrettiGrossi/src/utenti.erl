@@ -90,7 +90,7 @@ place_manager(Manager, PidObserver) ->
       [ PidObserver ! {start_monitor, PlacePid} || PlacePid <- PlacesUpdated],
       update_status(Manager, {update_places, PlacesUpdated ++ Places})
   end,
-  sleep(2),
+  sleep(10),
   place_manager(Manager, PidObserver).
 
 %%--------------------------------------------------------------------
@@ -131,7 +131,7 @@ do_test(Manager) ->
     _ ->
       Manager ! {debug, no_test}
   end,
-  sleep(10),
+  sleep(30),
   do_test(Manager).
 
 %%--------------------------------------------------------------------
@@ -241,15 +241,9 @@ sample(N, L)->
 
 sample(L,0,_) -> L;
 sample(L,_,[]) -> L;
-sample(L1, N, L2) ->
-  X = case length(L2) of
-        1 ->
-          [_X | _] = L2,
-          _X;
-        Length ->
-          lists:nth(rand:uniform(Length-1), L2)
-      end,
-  sample(L1 ++ [X], N-1, [Y || Y <- L2, Y/= X]).
+sample(L1,N,L2) ->
+  X = lists:nth(rand:uniform(length(L2)), L2),
+  sample(L1 ++ [X], N-1, [Y || Y <- L2, Y /= X]).
 
 %%--------------------------------------------------------------------
 %% @doc Dorme per N secondi.

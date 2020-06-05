@@ -2,7 +2,7 @@
 -export([start/0]).
 
 rilevamento_contatti(Nuovo,Lista)->    
-    D = rand:uniform(1),
+    D = rand:uniform(4),
     case Lista of 
         [Testa | Coda] when D =:=1 ->  
             Nuovo ! {contact,Testa},    
@@ -37,8 +37,6 @@ luogo(Lista,Mappa)->
                 true ->% il visitatore che vuole entrare e' gia' nel luogo
                     luogo(Lista,Mappa); 
                 false ->%il visitatore non e' nel luogo
-                    %ogni visitatore che entra in un luogo viene monitorato e eventualmente rimosso se dovesse morire
-                    erlang:monitor(process,PID_VISITATORE),
                     rilevamento_contatti(PID_VISITATORE,Lista),
                     ciclo_di_vita(),% il luogo ha una probalita' 1/10 di chiudere ogni volta che viene visitato
                     luogo(Lista ++ [PID_VISITATORE],
@@ -58,19 +56,7 @@ luogo(Lista,Mappa)->
                         false -> luogo(Lista,Mappa)
                     end;                
                 false -> luogo(Lista,Mappa)
-            end;
-        
-        {'DOWN', _MonitorReference, process, Pid, quarantena} ->
-            luogo(Lista -- [Pid],maps:remove(Pid,Mappa));
-        {'DOWN', _MonitorReference, process, Pid, positivo} ->
-            luogo(Lista -- [Pid],maps:remove(Pid,Mappa));
-        {'DOWN', _MonitorReference, process, Pid, noconnection} -> 
-            % questo e il caso sotto sono casi  in cui si voglia monitorare un visitatore che e' 
-            % entrato ma appena prima di fare il monitor il visitatore esce perche' per esempio positivo 
-            luogo( Lista --[Pid] ,maps:remove(Pid,Mappa) );
-        {'DOWN', _MonitorReference, process, Pid, noproc} ->
-            luogo( Lista --[Pid] ,maps:remove(Pid,Mappa) )
-
+            end
     end.
 
 crea_luogo()->
@@ -86,5 +72,5 @@ crea_luogo()->
             crea_luogo()
     end.
 
-start()->
+start()-> % vengono creati 10 luoghi
     [spawn(fun() -> crea_luogo() end) || _ <- lists:seq(1,10) ].
