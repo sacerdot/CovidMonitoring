@@ -73,15 +73,16 @@ places_manager(USER_PLACES) ->
       [monitor(process, PID) || PID <- NEW_PLACES],
       visit_manager ! {new_places, NEW_PLACES},
       timer:sleep(?TIMEOUT_PM),
-      places_manager(NEW_PLACES)
+      places_manager(NEW_PLACES);
+    {'EXIT', _ , _} -> exit(death)
   end.
 
 %-----------Visit protocol-----------
 visit_manager(USER_PLACES) ->
   process_flag(trap_exit, true),
   receive
-    {'EXIT', PID, _} ->
-      io:format("~p enters in 'quarantena' because of ~p~n", [self(),PID]),
+    {'EXIT', _ , _} ->
+      io:format("~p dies ~n", [self()]),
       exit(quarantena);
     {'DOWN', _, process, PLACE, _} ->
       case lists:member(PLACE, USER_PLACES) of % a user place died
@@ -142,6 +143,7 @@ start() ->
   timer:sleep(3000),
   io:format("Hospital ping result: ~p~n", [net_adm:ping(list_to_atom("ospedale@" ++ net_adm:localhost()))]),
   SERVER = global:whereis_name(server),
+  monitor(process,SERVER),
   PM = spawn_link(?MODULE, places_manager, [[]]),
   VM = spawn_link(?MODULE, visit_manager, [[]]),
   register(visit_manager, VM),
@@ -150,7 +152,7 @@ start() ->
   ML = [PM, VM, TM],
   receive
     {'EXIT', _, quarantena} -> io:format("The user is dead ~n");
-    {'EXIT', SERVER, _} -> io:format("The server is dead ~n");
+    {'DOWN', _, process, SERVER, _} -> io:format("The server is dead ~n");
     {'EXIT', DM, _} ->
       [unlink(P) || P <- (ML -- [DM])],
       [exit(P, kill) || P <- (ML -- [DM])],

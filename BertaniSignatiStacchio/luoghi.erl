@@ -32,7 +32,7 @@ visits(USER_LIST) ->
           exit(normal);
         false ->
           % ----- Contact tracing protocol -----
-          [case rand:uniform(100) =< 100 of
+          [case rand:uniform(100) =< 25 of
             true ->
               element(1,UC) ! {contact, USER},
               USER ! {contact, element(1,UC)};
