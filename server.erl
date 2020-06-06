@@ -2,7 +2,6 @@
 -export([start/0]).
 
 
-
 start() ->
     io:format("CIAO SONO IL SERVER~n"),
     process_flag(trap_exit, true),
@@ -40,7 +39,5 @@ server_loop(Places) ->
         {ciao, da, luogo, Pid} -> io:format("Ciao da luogo ~p~n", [Pid]), server_loop(Places);
         {ciao, da, utente, Pid} -> io:format("Ciao da utente ~p~n", [Pid]), server_loop(Places);
         {ciao, da, ospedale} -> io:format("Ciao da ospedale ~n"), server_loop(Places)
-
-
 
     end.

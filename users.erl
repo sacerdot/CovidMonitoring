@@ -1,22 +1,24 @@
--module(usersnew).
+-module(users).
 -export([start/0]).
 
 start() ->
     io:format("CIAO SONO IL GESTORE DEI USER~n"),
     [ spawn(fun users_init/0) || _ <- lists:seq(1,10) ].
 
+
 users_init() ->
     process_flag(trap_exit, true),
 
-    PidServer = global:whereis_name(server),
-	link(PidServer),
-    PidServer ! {ciao, da, utente, self()},
+    PidUser = self(),
     PidHospital = global:whereis_name(hospital),
+    PidServer = global:whereis_name(server),
+	  link(PidServer),
+    PidServer ! {ciao, da, utente, PidUser},
 
     %% spawn attori ausiliari
-    PidVisit = spawn_link(fun() -> process_flag(trap_exit, true), visit(self(),[]) end),
-    PidTester = spawn_link(fun () -> get_tested(self(), PidHospital) end),
-    PidAskPlaces = spawn_link(fun() -> ask_more_places(self(), PidServer) end),
+    PidVisit = spawn_link(fun() -> process_flag(trap_exit, true), visit(PidUser,[]) end),
+    PidTester = spawn_link(fun () -> get_tested(PidUser, PidHospital) end),
+    PidAskPlaces = spawn_link(fun() -> ask_more_places(PidUser, PidServer) end),
 
     PidServer ! {get_places, self()},
     user_loop([], PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital).
@@ -26,6 +28,14 @@ user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital) ->
     receive
 
         %% messaggi dei protocolli
+
+        positive ->
+            io:format("Sono positivo (~p)~n", [self()]),
+            exit(positive);
+
+        negative ->
+            io:format("Sono negativo (~p)~n", [self()]),
+            user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital);
 
         {places, Places} ->
             case length(Places) < 3 of
@@ -38,14 +48,6 @@ user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital) ->
 
         {contact, PidUContact} ->
             link(PidUContact),
-            user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital);
-
-        positive ->
-            io:format("Sono positivo (~p)~n", [self()]),
-            exit(positive);
-
-        negative ->
-            io:format("Sono negativo (~p)~n", [self()]),
             user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital);
 
         %% messaggi di gestione morte attori
@@ -65,23 +67,25 @@ user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital) ->
 
         {'EXIT', PidVisit, _ } ->
             io:format("Morte irregolare di visit~n"),
-            NewPidVisit = spawn_link(fun() -> process_flag(trap_exit, true), visit(self(), UPlaces) end),
+            PidUser = self(),
+            NewPidVisit = spawn_link(fun() -> process_flag(trap_exit, true), visit(PidUser, UPlaces) end),
             user_loop(UPlaces, NewPidVisit, PidTester, PidAskPlaces, PidServer, PidHospital);
 
         {'EXIT', PidTester, _ } ->
             io:format("Morte irregolare di get_tested~n"),
-            NewPidTester = spawn_link(fun () -> get_tested(self(), PidHospital) end),
+            PidUser = self(),
+            NewPidTester = spawn_link(fun () -> get_tested(PidUser, PidHospital) end),
             user_loop(UPlaces, PidVisit, NewPidTester, PidAskPlaces, PidServer, PidHospital);
 
         {'EXIT', PidAskPlaces, _ } ->
             io:format("Morte irregolare di ask_more_places~n"),
-            NewPidAskPlaces = spawn_link(fun() -> ask_more_places(self(), PidServer) end),
+            PidUser = self(),
+            NewPidAskPlaces = spawn_link(fun() -> ask_more_places(PidUser, PidServer) end),
             user_loop(UPlaces, PidVisit, PidTester, NewPidAskPlaces, PidServer, PidHospital);
 
         {'EXIT', _ , Reason} ->
             io:format("L'utente sta per morire per ragione ~p~n", [Reason]),
             exit(Reason) %nel caso in cui qualuno a cui siamo linkati termini per un'altra ragione, anche noi terminiamo con la stessa reason
-
     end.
 
 %%% ATTORI AUSILIARI
@@ -102,6 +106,7 @@ visit(PidUser, ListPlaces) ->
     after util:rand_in_range(5000,10000) -> ok end,
     PidPlaceToVisit ! {end_visit, PidUser, Ref},
     visit(PidUser, ListPlaces).
+
 
 %% Attore che richiede il test all'ospedale
 
@@ -124,8 +129,6 @@ ask_more_places(PidUser, PidServer) ->
             PidServer ! {get_places, PidUser},
             ask_more_places(PidUser, PidServer)
     end.
-
-
 
 
 %%% FUNZIONI AUSILIARIE

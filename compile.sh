@@ -1,6 +1,6 @@
 #!/bin/bash
 
-files_list=(hospital server usersnew util places test)
+files_list=(hospital server users util places test)
 
 function rm_file(){
   if [ -f "$1" ]; then
