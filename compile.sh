@@ -1,6 +1,6 @@
 #!/bin/bash
 
-files_list=(hospital server usersnew util places)
+files_list=(hospital server usersnew util places test)
 
 function rm_file(){
   if [ -f "$1" ]; then
@@ -19,5 +19,3 @@ do
   echo Compiling $file
   erl -compile $file
 done
-
-#erlc ./places.erl ./server.erl ./usersnew.erl ./hospital.erl ./util.erl

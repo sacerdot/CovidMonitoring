@@ -1,31 +1,21 @@
 -module(test).
--export([test/0]).
+-export([test/0, prova/0]).
 
 
-
-create_users(Num) ->
-    case Num of
-        0 -> ok;
-        _ ->    %spawn(users, users_init, []),
-                spawn(usersnew, users_init, []),
-                create_users(Num-1)
-    end.
-
-create_places(Num) ->
-    case Num of
-        0 -> ok;
-        _ ->    spawn(places, place_init, []),
-                create_places(Num-1)
-    end.
+prova() ->
+    receive
+        {msg, N} ->
+            io:format("messaggio ricevuto ~p~n", [N])
+    end,
+    receive
+        {rompi, M} ->
+            io:format("messaggio ricevuto rompi ~p~n", [M])
+    after 30000 -> prova() end.
 
 test() ->
 
-    spawn(server, server_init, []), %la server_init fa ache lei la spown del server, forse qui basta fare la chiamata alla server init
+    spawn(server, start, []), %la server_init fa ache lei la spown del server, forse qui basta fare la chiamata alla server init
     util:sleep(1000),
-    hospital:hospital_init(),
-    %util:sleep(1000),
-    create_places(10),
-    create_users(10),
-    util:sleep(60000),
-    io:format("Creo nuovi posti~n", []),
-    create_places(10).
+    spawn(hospital, start, []),
+    spawn(usersnew, start, []),
+    spawn(places, start, []).
