@@ -1,6 +1,8 @@
 -module(hospital).
 -export([start/0]).
 
+-define(POSITIVEPROB, 25).
+
 start() ->
     io:format("CIAO SONO L'OSPEDALE~n"),
     ServerPid = global:whereis_name(server),
@@ -11,7 +13,7 @@ start() ->
 hospital_loop() ->
     receive
         {test_me, Pid_User} ->
-            case util:probability(25) of
+            case util:probability(?POSITIVEPROB) of
                 true -> Pid_User ! positive;
                 false -> Pid_User ! negative
             end

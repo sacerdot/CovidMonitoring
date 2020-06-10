@@ -1,9 +1,18 @@
 -module(users).
 -export([start/0]).
 
+%%
+-define(NUSERS, 5).
+-define(NUSERPLACES, 3).
+-define(WAITVISIT, {3000, 5000}).
+-define(TIMEVISIT, {5000,10000}).
+-define(TIMETEST, 30000).
+-define(PROBTEST, 25).
+-define(TIMEASKPLACES, 10000).
+
 start() ->
     io:format("CIAO SONO IL GESTORE DEI USER~n"),
-    [ spawn(fun users_init/0) || _ <- lists:seq(1,10) ].
+    [ spawn(fun users_init/0) || _ <- lists:seq(1,?NUSERS) ].
 
 
 users_init() ->
@@ -12,7 +21,7 @@ users_init() ->
     PidUser = self(),
     PidHospital = global:whereis_name(hospital),
     PidServer = global:whereis_name(server),
-	  link(PidServer),
+	link(PidServer),
     PidServer ! {ciao, da, utente, PidUser},
 
     %% spawn attori ausiliari
@@ -20,11 +29,13 @@ users_init() ->
     PidTester = spawn_link(fun () -> get_tested(PidUser, PidHospital) end),
     PidAskPlaces = spawn_link(fun() -> ask_more_places(PidUser, PidServer) end),
 
-    PidServer ! {get_places, self()},
+    %% parte user_loop
+    get_places(PidUser, PidServer),
     user_loop([], PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital).
 
 
 user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital) ->
+
     receive
 
         %% messaggi dei protocolli
@@ -38,12 +49,12 @@ user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital) ->
             user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital);
 
         {places, Places} ->
-            case length(Places) < 3 of
-                true -> PidAskPlaces ! {ask_more_places};
+            case length(Places) < ?NUSERPLACES of
+                true -> wake_ask_places(PidAskPlaces);
                 false -> ok
             end,
-            ChosenPlaces = choose_places(Places -- UPlaces, UPlaces, 3 - length(UPlaces)),
-            PidVisit ! {place_list, ChosenPlaces},
+            ChosenPlaces = choose_places(Places -- UPlaces, UPlaces, ?NUSERPLACES - length(UPlaces)),
+            send_placese_to_visit(PidVisit, ChosenPlaces),
             user_loop(ChosenPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital);
 
         {contact, PidUContact} ->
@@ -53,17 +64,12 @@ user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital) ->
         %% messaggi di gestione morte attori
 
         {'DOWN', _ , process, PidPlace, _} -> % un luogo che stavamo monitorando muore, quindi ne chiediamo un altro
-            PidServer ! {get_places, self()},
+            get_places(self(), PidServer),
             user_loop(UPlaces -- [PidPlace], PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital);
 
         {'EXIT', _ , Reason} when Reason =:= positive; Reason =:= quarantena->
             io:format("Entro in quarantena ~p~n",[self()]),
             exit(quarantena);
-
-        %TODO : vedere a che serve questo, se no togli
-        {'EXIT', Pid , normal} ->
-            io:format("Exit normal di ~p~n", [Pid]),
-            user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital);
 
         {'EXIT', PidVisit, _ } ->
             io:format("Morte irregolare di visit~n"),
@@ -83,9 +89,12 @@ user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital) ->
             NewPidAskPlaces = spawn_link(fun() -> ask_more_places(PidUser, PidServer) end),
             user_loop(UPlaces, PidVisit, PidTester, NewPidAskPlaces, PidServer, PidHospital);
 
-        {'EXIT', _ , Reason} ->
+        {'EXIT', _ , Reason} when Reason =/= normal ->
             io:format("L'utente sta per morire per ragione ~p~n", [Reason]),
-            exit(Reason) %nel caso in cui qualuno a cui siamo linkati termini per un'altra ragione, anche noi terminiamo con la stessa reason
+            exit(Reason); %nel caso in cui qualuno a cui siamo linkati termini per un'altra ragione, anche noi terminiamo con la stessa reason
+
+        _ -> user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital)
+
     end.
 
 %%% ATTORI AUSILIARI
@@ -95,24 +104,17 @@ user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital) ->
 visit(PidUser, []) -> receive {place_list, ChosenPlaces} -> visit(PidUser, ChosenPlaces) end;
 visit(PidUser, ListPlaces) ->
     receive {place_list, ChosenPlaces} -> visit(PidUser, ChosenPlaces) after 0 -> ok end, %se è cambiata la lista dei posti dell'utente, la riceviamo e ci richiamiamo con la nuova lista
-    util:sleep(util:rand_in_range(3000, 5000)),
+    util:sleep(util:rand_in_range(?WAITVISIT)),
     Ref = make_ref(),
     PidPlaceToVisit = util:rand_in_list(ListPlaces),
-    PidPlaceToVisit ! {begin_visit, PidUser, Ref},
-    receive
-        {'EXIT', _ , Reason} ->
-            PidPlaceToVisit ! {end_visit, PidUser, Ref}, %se moriamo durante la visita, prima di morire, usciamo dalla visita
-            exit(Reason)
-    after util:rand_in_range(5000,10000) -> ok end,
-    PidPlaceToVisit ! {end_visit, PidUser, Ref},
+    in_place(PidPlaceToVisit, PidUser, Ref),
     visit(PidUser, ListPlaces).
-
 
 %% Attore che richiede il test all'ospedale
 
 get_tested(PidUser, PidHospital) ->
-    util:sleep(30000),
-    case util:probability(25) of
+    util:sleep(?TIMETEST),
+    case util:probability(?PROBTEST) of
         true -> PidHospital ! {test_me, PidUser};
         false -> ok
     end,
@@ -124,11 +126,35 @@ get_tested(PidUser, PidHospital) ->
 ask_more_places(PidUser, PidServer) ->
     receive
     %TODO: cancella questo messaggio NOTA: vengono aggiunti in coda msg ask a ogni morte di luogo (se nascono nuovi luoghi facciamo un paio di giri in piu')
-        {ask_more_places} ->
-            util:sleep(10000),
-            PidServer ! {get_places, PidUser},
+        ask_more_places ->
+            util:sleep(?TIMEASKPLACES),
+            get_places(PidUser, PidServer),
             ask_more_places(PidUser, PidServer)
     end.
+
+
+%%% FUNZIONI DI COMUNICAZIONE
+
+%% chiediamo i luoghi al server
+get_places(PidUser, PidServer) ->
+    PidServer ! {get_places, PidUser}.
+
+wake_ask_places(PidAskPlaces) ->
+    PidAskPlaces ! ask_more_places.
+
+send_placese_to_visit(PidVisit, ChosenPlaces) ->
+    PidVisit ! {place_list, ChosenPlaces}.
+
+%% iniziamo e terminiamo la visita dell'utente PidUser nel luogo PidPlaceToVisit
+in_place(PidPlaceToVisit, PidUser, Ref) ->
+    PidPlaceToVisit ! {begin_visit, PidUser, Ref},
+    receive
+        {'EXIT', _ , Reason} ->
+            PidPlaceToVisit ! {end_visit, PidUser, Ref}, %se moriamo durante la visita, prima di morire, usciamo dalla visita
+            exit(Reason)
+    after util:rand_in_range(?TIMEVISIT) -> ok end,
+    PidPlaceToVisit ! {end_visit, PidUser, Ref}.
+
 
 
 %%% FUNZIONI AUSILIARIE
