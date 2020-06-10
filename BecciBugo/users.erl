@@ -1,7 +1,7 @@
 -module(users).
 -export([start/0]).
 
--define(NUSERS, 10).                % numero utenti
+-define(NUSERS, 5).                % numero utenti
 -define(NUSERPLACES, 3).            % numero posti mantenuti da ogni utente
 -define(WAITVISIT, {3000, 5000}).   % attesa prima di visitare un luogo (range in ms)
 -define(TIMEVISIT, {5000,10000}).   % durata della visita (range in ms)
