@@ -1,14 +1,14 @@
 -module(users).
 -export([start/0]).
 
-%%
--define(NUSERS, 5).
--define(NUSERPLACES, 3).
--define(WAITVISIT, {3000, 5000}).
--define(TIMEVISIT, {5000,10000}).
--define(TIMETEST, 30000).
--define(PROBTEST, 25).
--define(TIMEASKPLACES, 10000).
+-define(NUSERS, 10).                % numero utenti
+-define(NUSERPLACES, 3).            % numero posti mantenuti da ogni utente
+-define(WAITVISIT, {3000, 5000}).   % attesa prima di visitare un luogo (range in ms)
+-define(TIMEVISIT, {5000,10000}).   % durata della visita (range in ms)
+-define(TIMETEST, 30000).           % attesa prima di farsi testare (ms)
+-define(PROBTEST, 25).              % probabilita' di farsi testare (%)
+-define(TIMEASKPLACES, 10000).      % attesa prima di richiedere nuovi posti (ms)
+
 
 start() ->
     io:format("CIAO SONO IL GESTORE DEI USER~n"),
@@ -54,7 +54,7 @@ user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital) ->
                 false -> ok
             end,
             ChosenPlaces = choose_places(Places -- UPlaces, UPlaces, ?NUSERPLACES - length(UPlaces)),
-            send_placese_to_visit(PidVisit, ChosenPlaces),
+            send_places_to_visit(PidVisit, ChosenPlaces),
             user_loop(ChosenPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital);
 
         {contact, PidUContact} ->
@@ -91,7 +91,7 @@ user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital) ->
 
         {'EXIT', _ , Reason} when Reason =/= normal ->
             io:format("L'utente sta per morire per ragione ~p~n", [Reason]),
-            exit(Reason); %nel caso in cui qualuno a cui siamo linkati termini per un'altra ragione, anche noi terminiamo con la stessa reason
+            exit(Reason); %nel caso in cui qualcuno a cui siamo linkati termini per un'altra ragione, anche noi terminiamo con la stessa reason
 
         _ -> user_loop(UPlaces, PidVisit, PidTester, PidAskPlaces, PidServer, PidHospital)
 
@@ -125,7 +125,6 @@ get_tested(PidUser, PidHospital) ->
 
 ask_more_places(PidUser, PidServer) ->
     receive
-    %TODO: cancella questo messaggio NOTA: vengono aggiunti in coda msg ask a ogni morte di luogo (se nascono nuovi luoghi facciamo un paio di giri in piu')
         ask_more_places ->
             util:sleep(?TIMEASKPLACES),
             get_places(PidUser, PidServer),
@@ -139,10 +138,12 @@ ask_more_places(PidUser, PidServer) ->
 get_places(PidUser, PidServer) ->
     PidServer ! {get_places, PidUser}.
 
+%% svegliamo ask more places
 wake_ask_places(PidAskPlaces) ->
     PidAskPlaces ! ask_more_places.
 
-send_placese_to_visit(PidVisit, ChosenPlaces) ->
+% mandiamo all'attore vist la nuova lista dei posti
+send_places_to_visit(PidVisit, ChosenPlaces) ->
     PidVisit ! {place_list, ChosenPlaces}.
 
 %% iniziamo e terminiamo la visita dell'utente PidUser nel luogo PidPlaceToVisit

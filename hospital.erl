@@ -1,7 +1,7 @@
 -module(hospital).
 -export([start/0]).
 
--define(POSITIVEPROB, 25).
+-define(POSITIVEPROB, 25).  % probabilita' di restituire risultato positivo (%)
 
 start() ->
     io:format("CIAO SONO L'OSPEDALE~n"),

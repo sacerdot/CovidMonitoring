@@ -27,7 +27,7 @@ server_loop(Places) ->
         {'DOWN', _ , process, Pid, _ } ->
             server_loop(Places -- [Pid]);
 
-        {'EXIT', _ , Reason} when Reason =:= 'positive'; Reason =:= 'normal';  Reason =:= 'quarantena' ->
+        {'EXIT', _ , Reason} when Reason =:= 'positive';   Reason =:= 'quarantena'; Reason =:= 'normal' ->
             server_loop(Places);
 
         %% catturiamo una exit sconosciuta
