@@ -18,7 +18,7 @@ server(Luoghi)->
                     io:format("Luogo ~p eliminato dalla lista ~n",[Pid]),server(Luoghi -- [Pid]);
                 true  when (CAUSA /= normal) -> %un luogo non  e' uscito normalmente dalla lista qundi anche il server esce
                     io:format(" 1 Sono il server esco per causa ~p~n",[CAUSA]), 
-                    exit(CAUSA);                
+                    erlang:exit(CAUSA);                
                 false -> % quello che e' morto non e' un luogo si guarda la causa
                     case CAUSA of
                         normal -> server(Luoghi);
@@ -26,7 +26,7 @@ server(Luoghi)->
                         positivo -> server(Luoghi); 
                         Y ->
                             io:format("Sono il server esco per causa ~p~n",[Y]),  
-                            exit(CAUSA)  % un attore linkato al server e' uscito in modo anormale      
+                            erlang:exit(CAUSA)  % un attore linkato al server e' uscito in modo anormale      
                     end
             end
                     
@@ -35,11 +35,11 @@ server(Luoghi)->
 start()->
     spawn(
         fun() ->
-            process_flag(trap_exit, true),
-            Ris = global:register_name(server,self()),
+            erlang:process_flag(trap_exit, true),
+            Ris = global:register_name(server,erlang:self()),
             case Ris of
                 yes -> server([]);
-                no -> io:format("Non e' possibile registrare il server ~n "), exit(ko)        
+                no -> io:format("Non e' possibile registrare il server ~n "), erlang:exit(ko)        
             end
         end
     ).

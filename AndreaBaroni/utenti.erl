@@ -1,5 +1,6 @@
--module(utente).
+-module(utenti).
 -export([start/0]).
+-define(NUTENTI,5).
 
 test(PidUtente)->
     OSPEDALE = global:whereis_name(hospital),
@@ -18,32 +19,30 @@ test(PidUtente)->
 
 fai_test(PidUtente) ->
     test(PidUtente),
-    timer:sleep(3000),
+    timer:sleep(30000),
     fai_test(PidUtente).
-%viene mandato un messaggio di uscita anticipata e si attende la risposta per essere sicuri di uscire
-%da un eventuale luogo prima di uscire
-esciluogo(PidPortineria) -> 
-    PidPortineria ! {uscita_anticipata,self()},
-    receive
-        ack -> ok        
-    end.
 
 utente(PidSupervisore,PidPortineria)->
     receive
         {'EXIT',PidSupervisore,_Reason}-> %messaggio di uscita dal supervisore
             io:format("E ' morto il supervisore esco. ~n "),
-            exit(errore);
+            erlang:exit(errore);
         {contact,Pid} ->
-            io:format("Sono ~p ho linkato ~p  ~n",[self(),Pid]),
-            link(Pid),
+            io:format("Sono ~p ho linkato ~p  ~n",[erlang:self(),Pid]),
+            erlang:link(Pid),
             utente(PidSupervisore,PidPortineria);
         {'EXIT',_Pid,quarantena}->
-            io:format("Esco vado in quarantena sono ~p  ~n",[self()]),esciluogo(PidPortineria),exit(quarantena);
+            io:format("Esco vado in quarantena sono ~p  ~n",[erlang:self()]),
+            esci_luogo(PidPortineria), % prima di uscire manda un messaggio di uscita dal luogo che eventualmente sta visitando
+            erlang:exit(quarantena);
         {'EXIT',_Pid,positivo}->
-            io:format("Esco sono in contatto con positivo sono ~p   ~n",[self()]),esciluogo(PidPortineria),exit(quarantena);
+            io:format("Esco sono in contatto con positivo sono ~p   ~n",[erlang:self()]),
+            esci_luogo(PidPortineria),
+            erlang:exit(quarantena);
         positive->
-            io:format("Esco sono positivo sono l'utente ~p  ~n",[self()]),esciluogo(PidPortineria),exit(positivo);
-        
+            io:format("Esco sono positivo sono l'utente ~p  ~n",[erlang:self()]),
+            esci_luogo(PidPortineria),
+            erlang:exit(positivo);        
         {'EXIT',_Pid,noproc}->
             % In questo caso e in quello sotto si
             % viene linkati ad un utente che non esiste in quanto
@@ -52,11 +51,12 @@ utente(PidSupervisore,PidPortineria)->
         {'EXIT',_Pid,noconnection}->
             utente(PidSupervisore,PidPortineria);          
         {'EXIT',_Pid,Reason} ->
-            io:format("Uscita anomala io sono l'utente ~p , ragione:  ~p  ~n",[self(),Reason]),exit(Reason)
+            io:format("Uscita anomala io sono l'utente ~p , ragione:  ~p  ~n",[erlang:self(),Reason]),
+            erlang:exit(Reason)
     end.
 
 init_utente(PidSupervisore,PidPortineria)->
-    process_flag(trap_exit,true),utente(PidSupervisore,PidPortineria).
+    erlang:process_flag(trap_exit,true),utente(PidSupervisore,PidPortineria).
 
 remove_dups([])    -> []; % rimuove i duplicati da una lista fonte https://stackoverflow.com/a/22133154
 remove_dups([H|T]) -> [H | [X || X <- remove_dups(T), X /= H]].
@@ -73,12 +73,12 @@ integra(Luoghi,Lista,N) ->
 mantiene_lista(Luoghi,PidServer)-> %mantiene la lista luoghi lunga 3
     case erlang:length(Luoghi) of
         X when X < 3 ->
-             PidServer ! {get_places,self()},
+             PidServer ! {get_places,erlang:self()},
              receive
                  {places,Lista} ->
-                    integra(remove_dups(Luoghi),remove_dups(Lista)--remove_dups(Luoghi) ,3-X)         
-             after% dopo 4 secondo se il server non rispode si restituiscono Luoghi
-                 4000 ->Luoghi 
+                    integra(remove_dups(Luoghi),remove_dups(Lista) -- remove_dups(Luoghi) ,3-X)         
+             after% dopo 5 secondo se il server non rispode si restituiscono Luoghi
+                 5000 ->Luoghi 
              end;
         _ -> Luoghi  % la lista contiene gia' tre luoghi     
     end.
@@ -120,35 +120,41 @@ aggiorna(Luoghi,PidServer)->
     end.
 
 init_lista(PidServer)->
-    S = self(),
+    S = erlang:self(),
     L = mantiene_lista([],PidServer),
     [monitor(process,X)|| X <- L ],
-    spawn_link(fun()->notifica(S) end), 
+    erlang:spawn_link(fun()->notifica(S) end), 
     aggiorna(L,PidServer).
 %------- funzioni per gestire la visita
 
 % gestisce le entrate e le uscite ovvero si occupa di mandare messaggi 
-% di entrata, uscita o uscita anticipata da un luogo
-% l'uscita anticipata si verifica nel caso un utente sia risultato positivo o sia entrato in contatto con un positivo o vada in quarantena
+% di entrata, uscita da un luogo
+
+entra_luogo(Luogo,PidUtente,PidPortineria )->
+    REF = erlang:make_ref(),
+    PidPortineria ! {Luogo,begin_visit, PidUtente, REF},
+    ok.
+
+esci_luogo(PidPortineria)->
+    PidPortineria ! esci,
+    ok.
+
 portineria(LuogoCorrente)-> 
     receive
         {LUOGO,begin_visit, PidUtente, REF} ->
             LUOGO ! {begin_visit, PidUtente, REF},
             portineria({LUOGO,begin_visit, PidUtente, REF});
-
-        {LUOGO,end_visit, PidUtente, REF}->
-            LUOGO ! {end_visit, PidUtente, REF},
-            portineria({}) ;
-        
-        {uscita_anticipata, Pid} ->
+        esci ->
             case LuogoCorrente of
                 {LUOGO,begin_visit, PidUtente, REF} ->
                     LUOGO ! {end_visit, PidUtente, REF},
-                    io:format("Mandata richiesta di uscita anticipata ~n"),
-                    Pid ! ack,
+                    io:format("Mandata richiesta di uscita  ~n"),                    
                     portineria({}) ;
-                _ -> Pid ! ack,
-                    portineria({})                    
+                {} ->
+                    portineria({});
+                _ ->
+                    io:format("Errore nella gestione delle entrate/uscite da un luogo ~n"),
+                    erlang:exit(errore)                  
             end                    
     end.
 
@@ -156,17 +162,16 @@ inizia_visita(L,PidUtente,PidPortineria)->
     case erlang:length(L) of
         0 -> io:format("Non riesco a visitare non ci sono luoghi ~n");
         _ -> %c'e' almeno un elemento nella lista
-            REF = erlang:make_ref(),
             LUOGO = lists:nth(rand:uniform(erlang:length(L)),L),
-            PidPortineria ! {LUOGO,begin_visit, PidUtente, REF},
+            entra_luogo(LUOGO,PidUtente,PidPortineria),
             io:format("Sto iniziando la visita del  luogo ~p sono l'utente ~p~n ",[LUOGO,PidUtente]),
             timer:sleep( (rand:uniform(6)+4)*1000 ), %prosegue la visita per 5 - 10 secondi
             io:format("Ho finito la visita del  luogo ~p sono l'utente ~p~n ",[LUOGO,PidUtente]),    
-            PidPortineria ! {LUOGO,end_visit, PidUtente, REF}        
+            esci_luogo(PidPortineria)       
     end.
 
 visita(GestoreLista,PidUtente,PidPortineria)->
-    GestoreLista ! {richiedi,self()},
+    GestoreLista ! {richiedi,erlang:self()},
     receive
         {L,lista_luoghi} -> inizia_visita(L,PidUtente,PidPortineria)            
     after
@@ -181,18 +186,18 @@ init_visita(GestoreLista,PidUtente,PidPortineria)->
 
 crea_utente()->   
     PidServer = global:whereis_name(server),
-    S = self(),
+    S = erlang:self(),
     case PidServer of
         Pid when erlang:is_pid(Pid) ->
             link(Pid),
-            PidPortineria = spawn_link(fun () -> portineria({}) end ),
-            U = spawn_link(fun()-> init_utente(S,PidPortineria) end )  ,
-            L = spawn_link(fun()-> init_lista(Pid) end)  ,
-            spawn_link(fun()-> init_visita(L,U,PidPortineria) end),
-            spawn_link(fun()-> fai_test(U) end),
+            PidPortineria = erlang:spawn_link(fun () -> portineria({}) end ),
+            U = erlang:spawn_link(fun()-> init_utente(S,PidPortineria) end )  ,
+            L = erlang:spawn_link(fun()-> init_lista(Pid) end)  ,
+            erlang:spawn_link(fun()-> init_visita(L,U,PidPortineria) end),
+            erlang:spawn_link(fun()-> fai_test(U) end),
             receive
                 {'EXIT',_Pid,Reason} ->
-                    exit(Reason)                            
+                    erlang:exit(Reason)                            
             end;
          _ ->
             io:format("Non riesco a contattare il server riprovo ~n "),
@@ -200,6 +205,6 @@ crea_utente()->
             crea_utente()
     end.
 
-start()-> %vengono creati 5 utenti
-    [spawn(fun()-> process_flag(trap_exit,true),crea_utente() end) || _ <- lists:seq(1,5) ].
+start()-> %vengono creati NUTENTI utenti
+    [erlang:spawn(fun()-> erlang:process_flag(trap_exit,true),crea_utente() end) || _ <- lists:seq(1,?NUTENTI) ].
     

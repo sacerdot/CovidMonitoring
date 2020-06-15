@@ -1,5 +1,6 @@
--module(luogo).
+-module(luoghi).
 -export([start/0]).
+-define(NLUOGHI,10). % numero di luoghi creati dalla funzione start
 
 rilevamento_contatti(Nuovo,Lista)->    
     D = rand:uniform(4),
@@ -16,7 +17,7 @@ rilevamento_contatti(Nuovo,Lista)->
 ciclo_di_vita()-> % il luogo ha una probalita' 1/10 di chiudere ogni volta che viene visitato
     D = rand:uniform(10),
     case D of
-        1 -> io:format("Esco... sono il luogo: ~p~n",[self()]), exit(normal);
+        1 -> io:format("Esco... sono il luogo: ~p~n",[erlang:self()]), erlang:exit(normal);
         _ -> ok
     end.
 
@@ -63,8 +64,8 @@ crea_luogo()->
     PidServer = global:whereis_name(server),
     case PidServer of %Prima di fare link al server controllo che il server sia vivo 
         Pid when erlang:is_pid(Pid) ->
-            link(Pid),
-            Pid ! {new_place, self()},
+            erlang:link(Pid),
+            Pid ! {new_place, erlang:self()},
             luogo([],#{});
         _ -> 
             io:format("Il server non e' vivo.... riprovo~n"), 
@@ -72,5 +73,5 @@ crea_luogo()->
             crea_luogo()
     end.
 
-start()-> % vengono creati 10 luoghi
-    [spawn(fun() -> crea_luogo() end) || _ <- lists:seq(1,10) ].
+start()-> % vengono creati NLUOGHI luoghi
+    [erlang:spawn(fun() -> crea_luogo() end) || _ <- lists:seq(1,?NLUOGHI) ].

@@ -16,7 +16,7 @@ start()->
         fun()->
             case global:register_name(hospital,self()) of
                 yes -> ospedale();
-                no -> io:format("Errore nel registrare l'ospedale ~n"),exit(errore)                                      
+                no -> io:format("Errore nel registrare l'ospedale ~n"),erlang:exit(errore)                                      
             end
         end
     ).
