@@ -20,21 +20,21 @@ gestione_messaggi(Gestore_ciclo_di_vita, Gestore_rilevamento_contatti, Gestore_l
 	receive
 		%Gestione messaggi delle visite
 		{begin_visit, PidVisitatore, Ref}->	Gestore_lista ! {aggiungi_utente, PidVisitatore, Ref},
-											gestione_messaggi(Gestore_ciclo_di_vita, Gestore_rilevamento_contatti, Gestore_lista, PidLuogo);
-		{end_visit, PidVisitatore, Ref}-> Gestore_lista ! {elimina_utente, PidVisitatore, Ref},
-										  gestione_messaggi(Gestore_ciclo_di_vita, Gestore_rilevamento_contatti, Gestore_lista, PidLuogo);
+							gestione_messaggi(Gestore_ciclo_di_vita, Gestore_rilevamento_contatti, Gestore_lista, PidLuogo);
+		{end_visit, PidVisitatore, Ref}-> 	Gestore_lista ! {elimina_utente, PidVisitatore, Ref},
+							gestione_messaggi(Gestore_ciclo_di_vita, Gestore_rilevamento_contatti, Gestore_lista, PidLuogo);
 		%Gestione di messaggi di fallimento
 		{'EXIT', Gestore_ciclo_di_vita, normal}-> erlang:exit(normal);
-		{'EXIT', Gestore_ciclo_di_vita, _}-> NuovoGCV=spawn_link(?MODULE, ciclo_di_vita, [self()]), 
-											 Gestore_lista ! {aggiornaPid, pidGCV, NuovoGCV},
-											 gestione_messaggi(NuovoGCV, Gestore_rilevamento_contatti, Gestore_lista, PidLuogo);
-		{'EXIT', Gestore_rilevamento_contatti, _}-> NuovoGRC=spawn_link(?MODULE, mantenimento_topologia, [self()]), 
-													Gestore_lista ! {aggiornaPid, pidGRC, NuovoGRC},
-													gestione_messaggi(Gestore_ciclo_di_vita, NuovoGRC, Gestore_lista, PidLuogo);
-		{'EXIT', Gestore_lista, _}-> NuovoGL=spawn_link(?MODULE, mantieni_lista_visitatori, [[], self(), Gestore_rilevamento_contatti, Gestore_ciclo_di_vita]),	
-									 gestione_messaggi(Gestore_ciclo_di_vita, Gestore_rilevamento_contatti, NuovoGL, PidLuogo);
-		{'EXIT', Server, Reason}-> io:format("IL SERVER È MORTO, MUOIO ANCHE IO! MOTIVO DEL FALLIMENTO:~p ~n", [Reason]),
-								   exit(Reason)
+		{'EXIT', Gestore_ciclo_di_vita, _}-> 	NuovoGCV=spawn_link(?MODULE, ciclo_di_vita, [self()]), 
+							Gestore_lista ! {aggiornaPid, pidGCV, NuovoGCV},
+							gestione_messaggi(NuovoGCV, Gestore_rilevamento_contatti, Gestore_lista, PidLuogo);
+		{'EXIT', Gestore_rilevamento_contatti, _}-> 	NuovoGRC=spawn_link(?MODULE, mantenimento_topologia, [self()]), 
+							 	Gestore_lista ! {aggiornaPid, pidGRC, NuovoGRC},
+								gestione_messaggi(Gestore_ciclo_di_vita, NuovoGRC, Gestore_lista, PidLuogo);
+		{'EXIT', Gestore_lista, _}-> 	NuovoGL=spawn_link(?MODULE, mantieni_lista_visitatori, [[], self(), Gestore_rilevamento_contatti, Gestore_ciclo_di_vita]),	
+						gestione_messaggi(Gestore_ciclo_di_vita, Gestore_rilevamento_contatti, NuovoGL, PidLuogo);
+		{'EXIT', Server, Reason}-> 	io:format("IL SERVER È MORTO, MUOIO ANCHE IO! MOTIVO DEL FALLIMENTO:~p ~n", [Reason]),
+						exit(Reason)
 	end.
 
 
@@ -42,27 +42,27 @@ gestione_messaggi(Gestore_ciclo_di_vita, Gestore_rilevamento_contatti, Gestore_l
 %Attore che si occupa del protocollo della visita dei luoghi
 mantieni_lista_visitatori(ListaVisitatori, PidLuogo, Gestore_rilevamento_contatti, Gestore_ciclo_di_vita)->
 	receive
-		{aggiornaPid, X, PidNuovo}-> case X of
-											pidGCV->mantieni_lista_visitatori(ListaVisitatori, PidLuogo, Gestore_rilevamento_contatti, PidNuovo);
-											pidGRC->mantieni_lista_visitatori(ListaVisitatori, PidLuogo, PidNuovo, Gestore_ciclo_di_vita)
-									end;
+		{aggiornaPid, X, PidNuovo}-> 	case X of
+							pidGCV->mantieni_lista_visitatori(ListaVisitatori, PidLuogo, Gestore_rilevamento_contatti, PidNuovo);
+							pidGRC->mantieni_lista_visitatori(ListaVisitatori, PidLuogo, PidNuovo, Gestore_ciclo_di_vita)
+						end;
 
 		{aggiungi_utente, PidUtente, Ref}-> case lists:member({PidUtente,Ref}, ListaVisitatori) of
-												true-> io:format("L'utente ~p è già in questo luogo", [PidUtente]),
-														mantieni_lista_visitatori(ListaVisitatori, PidLuogo, Gestore_rilevamento_contatti, Gestore_ciclo_di_vita);
-												false-> printEntrata(PidLuogo, PidUtente, ListaVisitatori),
-														Gestore_rilevamento_contatti ! {PidUtente, self()},
-														Gestore_ciclo_di_vita ! {nuova_visita},
-														mantieni_lista_visitatori(ListaVisitatori++[{PidUtente, Ref}], PidLuogo, Gestore_rilevamento_contatti, Gestore_ciclo_di_vita)
-											end;			
+							true-> 	io:format("L'utente ~p è già in questo luogo", [PidUtente]),
+								mantieni_lista_visitatori(ListaVisitatori, PidLuogo, Gestore_rilevamento_contatti, Gestore_ciclo_di_vita);
+							false-> printEntrata(PidLuogo, PidUtente, ListaVisitatori),
+								Gestore_rilevamento_contatti ! {PidUtente, self()},
+								Gestore_ciclo_di_vita ! {nuova_visita},
+								mantieni_lista_visitatori(ListaVisitatori++[{PidUtente, Ref}], PidLuogo, Gestore_rilevamento_contatti, Gestore_ciclo_di_vita)
+						 end;			
 		{elimina_utente, PidUtente, Ref}-> case lists:member({PidUtente, Ref}, ListaVisitatori) of
-												true -> printUscita(PidLuogo, PidUtente, ListaVisitatori),
-														mantieni_lista_visitatori(ListaVisitatori--[{PidUtente, Ref}], PidLuogo, Gestore_rilevamento_contatti, Gestore_ciclo_di_vita);
-												false-> io:format("Mi dispiace ma non sei in questo luogo"),
-														mantieni_lista_visitatori(ListaVisitatori, PidLuogo, Gestore_rilevamento_contatti, Gestore_ciclo_di_vita)
-											end;
+							true -> printUscita(PidLuogo, PidUtente, ListaVisitatori),
+								mantieni_lista_visitatori(ListaVisitatori--[{PidUtente, Ref}], PidLuogo, Gestore_rilevamento_contatti, Gestore_ciclo_di_vita);
+							false-> io:format("Mi dispiace ma non sei in questo luogo"),
+								mantieni_lista_visitatori(ListaVisitatori, PidLuogo, Gestore_rilevamento_contatti, Gestore_ciclo_di_vita)
+						 	end;
 		{richiesta_visitatori, PidRichiedente}->PidRichiedente ! {risposta_visitatori, ListaVisitatori},
-												mantieni_lista_visitatori(ListaVisitatori, PidLuogo, Gestore_rilevamento_contatti, Gestore_ciclo_di_vita)
+							mantieni_lista_visitatori(ListaVisitatori, PidLuogo, Gestore_rilevamento_contatti, Gestore_ciclo_di_vita)
 	end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -75,7 +75,6 @@ mantenimento_topologia(PidLuogo)->
 									  case length(ListaVisitatori)>=1 of
 											true-> calcola_incontri(ListaVisitatori, PidUtente),
 												   mantenimento_topologia(PidLuogo);
-													
 											false-> mantenimento_topologia(PidLuogo)
 									  end
 	end.				  
